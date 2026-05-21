@@ -16,15 +16,23 @@ O receptor espera payloads binários pequenos. O primeiro byte é sempre o opcod
 
 Todos os inteiros de 16 bits usam little-endian. `pressed` vale `0` para solto e qualquer valor diferente de zero para pressionado.
 
+Os comandos são enviados dentro de um envelope seguro da aplicação: `magic=0xa5`, `version=0x01`, `sequence` little-endian, `command_payload` e tag com os primeiros 16 bytes do HMAC-SHA256. O HMAC usa `APP_AUTH_KEY_HEX` e cobre todos os bytes antes da tag. O contador `sequence` é persistido em NVS; se a NVS falhar, o firmware não envia comandos HID.
+
 ## Arquitetura
 
 - `components/system_config`: expõe a configuração privada gerada a partir do `.env`.
 - `components/mpr121`: driver I2C reutilizável para ler os 12 eletrodos do MPR121.
 - `components/input`: mapeia estados capacitivos estáveis para ações lógicas.
 - `components/input_protocol`: monta payloads puros e validados para o protocolo do receptor.
+- `components/security`: monta o envelope seguro e calcula HMAC-SHA256.
+- `components/sequence_store`: persiste o contador de sequência em NVS.
 - `components/transport_espnow`: inicializa Wi-Fi STA, ESP-NOW, PMK/LMK e envia payloads ao receptor cadastrado.
 - `components/app`: orquestra inicialização, polling do MPR121 e envio das ações mapeadas.
 - `main`: inicializa NVS e chama a aplicação.
+
+## Teste de Tecla
+
+Após inicializar ESP-NOW, peer seguro e NVS, o emissor envia a tecla `a` a cada 5 segundos, limitado a 10 acionamentos. Cada acionamento envia dois pacotes seguros: `0x03, 0x04, 1` para pressionar e `0x03, 0x04, 0` para soltar.
 
 ## Entrada Capacitiva
 
@@ -46,11 +54,12 @@ Crie o `.env` local a partir de `.env.example` e copie as chaves do `sender_conf
 
 Variáveis principais:
 
-- `HEAD_CLICK_RECEIVER_WIFI_STA_MAC`: MAC Wi-Fi STA do receptor.
-- `HEAD_CLICK_ESP_NOW_WIFI_CHANNEL`: canal fixo ESP-NOW, atualmente `6`.
-- `HEAD_CLICK_ESP_NOW_PMK_HEX`: PMK compartilhada, 16 bytes em hexadecimal.
-- `HEAD_CLICK_SENDER_COMBO_LMK_HEX`: LMK do emissor combo, 16 bytes em hexadecimal.
-- `HEAD_CLICK_APP_AUTH_KEY_HEX`: chave futura de autenticação da aplicação, 32 bytes em hexadecimal.
+- `HEAD_EMITTER_RECEIVER_MAC`: MAC Wi-Fi STA do receptor.
+- `ESP_NOW_WIFI_CHANNEL`: canal fixo ESP-NOW, atualmente `6`.
+- `ESP_NOW_PMK_HEX`: PMK compartilhada, 16 bytes em hexadecimal.
+- `ESP_NOW_LMK_HEX`: LMK do emissor combo, 16 bytes em hexadecimal.
+- `APP_AUTH_KEY_HEX`: chave de autenticação da aplicação, 32 bytes em hexadecimal.
+- `APP_SEQUENCE_NAMESPACE` e `APP_SEQUENCE_KEY`: local do contador persistido em NVS.
 
 ## Build
 

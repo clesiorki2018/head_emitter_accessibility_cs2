@@ -69,7 +69,18 @@ static esp_err_t add_receiver_peer(void)
         return ESP_OK;
     }
 
-    return err;
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    ESP_LOGI(TAG, "Receiver peer configured %02x:%02x:%02x:%02x:%02x:%02x",
+             config->receiver_mac[0],
+             config->receiver_mac[1],
+             config->receiver_mac[2],
+             config->receiver_mac[3],
+             config->receiver_mac[4],
+             config->receiver_mac[5]);
+    return ESP_OK;
 }
 
 esp_err_t espnow_transport_init(void)
@@ -83,6 +94,11 @@ esp_err_t espnow_transport_init(void)
 
     if (!config->sender_enabled) {
         ESP_LOGE(TAG, "Combo sender is disabled in local configuration");
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    if (!config->encryption_enabled) {
+        ESP_LOGE(TAG, "ESP-NOW encryption must be enabled");
         return ESP_ERR_INVALID_STATE;
     }
 

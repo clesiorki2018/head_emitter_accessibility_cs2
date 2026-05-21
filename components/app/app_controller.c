@@ -5,6 +5,8 @@
 #include "input/input_mapper.h"
 #include "input_protocol/input_protocol.h"
 #include "mpr121.h"
+#include "security/secure_envelope.h"
+#include "sequence_store/sequence_store.h"
 #include "transport_espnow/espnow_transport.h"
 
 static const char *TAG = "app_controller";
@@ -13,18 +15,38 @@ static const char *TAG = "app_controller";
 #define APP_MPR121_SCL_GPIO 22
 #define APP_POLL_INTERVAL_MS 20
 #define APP_MAX_EVENTS_PER_POLL INPUT_MAPPER_CHANNEL_COUNT
+#define APP_TEST_KEY_INTERVAL_MS 5000
+#define APP_TEST_KEY_PRESS_MS 50
+#define APP_TEST_KEY_MAX_PRESSES 10
 
 enum {
     APP_MOUSE_BUTTON_LEFT = 0,
     APP_MOUSE_BUTTON_RIGHT = 1,
     APP_MOUSE_BUTTON_MIDDLE = 2,
+    APP_HID_KEY_A = 0x04,
     APP_HID_KEY_W = 0x1a,
     APP_HID_KEY_Q = 0x14,
 };
 
 static esp_err_t send_payload(const uint8_t *payload, size_t len)
 {
-    esp_err_t err = espnow_transport_send(payload, len);
+    uint8_t packet[SECURE_ENVELOPE_MAX_SIZE];
+    size_t packet_len = 0;
+    uint32_t sequence = 0;
+
+    esp_err_t err = sequence_store_next(&sequence);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Sequence store failed: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    err = secure_envelope_build(sequence, payload, len, packet, sizeof(packet), &packet_len);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Secure envelope build failed: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    err = espnow_transport_send(packet, packet_len);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "ESP-NOW send failed: %s", esp_err_to_name(err));
     }
@@ -144,6 +166,35 @@ static void app_input_task(void *arg)
     }
 }
 
+static void app_test_key_task(void *arg)
+{
+    (void)arg;
+
+    for (uint8_t count = 0; count < APP_TEST_KEY_MAX_PRESSES; ++count) {
+        vTaskDelay(pdMS_TO_TICKS(APP_TEST_KEY_INTERVAL_MS));
+
+        esp_err_t err = send_keyboard_key(APP_HID_KEY_A, true);
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "Test key press failed: %s", esp_err_to_name(err));
+            continue;
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(APP_TEST_KEY_PRESS_MS));
+
+        err = send_keyboard_key(APP_HID_KEY_A, false);
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "Test key release failed: %s", esp_err_to_name(err));
+            continue;
+        }
+
+        ESP_LOGI(TAG, "Sent test key A press %u/%u",
+                 (unsigned int)(count + 1), APP_TEST_KEY_MAX_PRESSES);
+    }
+
+    ESP_LOGI(TAG, "Test key A task finished");
+    vTaskDelete(NULL);
+}
+
 esp_err_t app_controller_init(void)
 {
     esp_err_t err = espnow_transport_init();
@@ -151,9 +202,21 @@ esp_err_t app_controller_init(void)
         return err;
     }
 
+    err = sequence_store_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Sequence store init failed: %s", esp_err_to_name(err));
+        return err;
+    }
+
     BaseType_t result = xTaskCreate(app_input_task, "mpr121_input", 4096, NULL, 5, NULL);
     if (result != pdPASS) {
         ESP_LOGE(TAG, "Failed to create MPR121 input task");
+        return ESP_FAIL;
+    }
+
+    result = xTaskCreate(app_test_key_task, "test_key_a", 3072, NULL, 4, NULL);
+    if (result != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create test key task");
         return ESP_FAIL;
     }
 

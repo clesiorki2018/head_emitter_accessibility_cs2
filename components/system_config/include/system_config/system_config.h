@@ -25,6 +25,8 @@ typedef struct {
     uint8_t app_auth_key[SYSTEM_CONFIG_APP_AUTH_KEY_SIZE];
     const char *sender_name;
     const char *sender_capabilities;
+    const char *sequence_namespace;
+    const char *sequence_key;
 } system_config_security_t;
 
 const system_config_security_t *system_config_get_security(void);

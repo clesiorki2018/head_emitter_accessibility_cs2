@@ -15,6 +15,8 @@ static const system_config_security_t s_security_config = {
     .app_auth_key = {HEAD_EMITTER_APP_AUTH_KEY_BYTES},
     .sender_name = HEAD_EMITTER_SENDER_NAME,
     .sender_capabilities = HEAD_EMITTER_SENDER_CAPABILITIES,
+    .sequence_namespace = HEAD_EMITTER_APP_SEQUENCE_NAMESPACE,
+    .sequence_key = HEAD_EMITTER_APP_SEQUENCE_KEY,
 };
 
 const system_config_security_t *system_config_get_security(void)

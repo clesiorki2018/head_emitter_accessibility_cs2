@@ -76,26 +76,41 @@ def c_bytes(values: list[int]) -> str:
     return ", ".join(f"0x{value:02x}" for value in values)
 
 
+def first_value(values: dict[str, str], *keys: str, default: str = "") -> str:
+    for key in keys:
+        value = values.get(key)
+        if value is not None and value != "":
+            return value
+
+    return default
+
+
 def generate_header(values: dict[str, str]) -> str:
     has_env = bool(values)
     has_receiver_mac, receiver_mac = mac_bytes(
-        values.get("HEAD_CLICK_RECEIVER_WIFI_STA_MAC", ""),
-        "HEAD_CLICK_RECEIVER_WIFI_STA_MAC",
+        first_value(values, "HEAD_EMITTER_RECEIVER_MAC", "HEAD_CLICK_RECEIVER_WIFI_STA_MAC"),
+        "HEAD_EMITTER_RECEIVER_MAC",
     )
     pmk = hex_bytes(
-        values.get("HEAD_CLICK_ESP_NOW_PMK_HEX", ""),
+        first_value(values, "ESP_NOW_PMK_HEX", "HEAD_CLICK_ESP_NOW_PMK_HEX"),
         16,
-        "HEAD_CLICK_ESP_NOW_PMK_HEX",
+        "ESP_NOW_PMK_HEX",
     )
     lmk = hex_bytes(
-        values.get("HEAD_CLICK_SENDER_COMBO_LMK_HEX", ""),
+        first_value(values, "ESP_NOW_LMK_HEX", "HEAD_CLICK_SENDER_COMBO_LMK_HEX"),
         16,
-        "HEAD_CLICK_SENDER_COMBO_LMK_HEX",
+        "ESP_NOW_LMK_HEX",
     )
     auth_key = hex_bytes(
-        values.get("HEAD_CLICK_APP_AUTH_KEY_HEX", ""),
+        first_value(values, "APP_AUTH_KEY_HEX", "HEAD_CLICK_APP_AUTH_KEY_HEX"),
         32,
-        "HEAD_CLICK_APP_AUTH_KEY_HEX",
+        "APP_AUTH_KEY_HEX",
+    )
+    wifi_channel = int(first_value(values, "ESP_NOW_WIFI_CHANNEL", "HEAD_CLICK_ESP_NOW_WIFI_CHANNEL", default="6"), 0)
+    encryption_enabled = env_bool(
+        {"value": first_value(values, "ESP_NOW_ENCRYPTION_ENABLED", "HEAD_CLICK_ESP_NOW_ENCRYPTION_ENABLED", default="1")},
+        "value",
+        True,
     )
 
     return "\n".join(
@@ -106,13 +121,15 @@ def generate_header(values: dict[str, str]) -> str:
             f"#define HEAD_EMITTER_CONFIG_HAS_ENV {1 if has_env else 0}",
             f"#define HEAD_EMITTER_RECEIVER_HAS_MAC {1 if has_receiver_mac else 0}",
             f"#define HEAD_EMITTER_RECEIVER_MAC_BYTES {c_bytes(receiver_mac)}",
-            f"#define HEAD_EMITTER_ESP_NOW_WIFI_CHANNEL {env_int(values, 'HEAD_CLICK_ESP_NOW_WIFI_CHANNEL', 6)}",
-            f"#define HEAD_EMITTER_ESP_NOW_ENCRYPTION_ENABLED {1 if env_bool(values, 'HEAD_CLICK_ESP_NOW_ENCRYPTION_ENABLED', True) else 0}",
+            f"#define HEAD_EMITTER_ESP_NOW_WIFI_CHANNEL {wifi_channel}",
+            f"#define HEAD_EMITTER_ESP_NOW_ENCRYPTION_ENABLED {1 if encryption_enabled else 0}",
             f"#define HEAD_EMITTER_ESP_NOW_PMK_BYTES {c_bytes(pmk)}",
             f"#define HEAD_EMITTER_ESP_NOW_LMK_BYTES {c_bytes(lmk)}",
             f"#define HEAD_EMITTER_APP_AUTH_KEY_BYTES {c_bytes(auth_key)}",
             f"#define HEAD_EMITTER_APP_REPLAY_PROTECTION_ENABLED {1 if env_bool(values, 'HEAD_CLICK_APP_REPLAY_PROTECTION_ENABLED', True) else 0}",
             f"#define HEAD_EMITTER_APP_SEQUENCE_WINDOW {env_int(values, 'HEAD_CLICK_APP_SEQUENCE_WINDOW', 32)}",
+            f"#define HEAD_EMITTER_APP_SEQUENCE_NAMESPACE {c_string(first_value(values, 'APP_SEQUENCE_NAMESPACE', default='head_emitter'))}",
+            f"#define HEAD_EMITTER_APP_SEQUENCE_KEY {c_string(first_value(values, 'APP_SEQUENCE_KEY', default='combo_seq'))}",
             f"#define HEAD_EMITTER_SENDER_NAME {c_string(values.get('HEAD_CLICK_SENDER_COMBO_NAME', 'combo'))}",
             f"#define HEAD_EMITTER_SENDER_ENABLED {1 if env_bool(values, 'HEAD_CLICK_SENDER_COMBO_ENABLED', True) else 0}",
             f"#define HEAD_EMITTER_SENDER_CAPABILITIES {c_string(values.get('HEAD_CLICK_SENDER_COMBO_CAPABILITIES', 'mouse,keyboard,joystick'))}",
