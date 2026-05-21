@@ -15,15 +15,11 @@ static const char *TAG = "app_controller";
 #define APP_MPR121_SCL_GPIO 22
 #define APP_POLL_INTERVAL_MS 20
 #define APP_MAX_EVENTS_PER_POLL INPUT_MAPPER_CHANNEL_COUNT
-#define APP_TEST_KEY_INTERVAL_MS 5000
-#define APP_TEST_KEY_PRESS_MS 50
-#define APP_TEST_KEY_MAX_PRESSES 10
 
 enum {
     APP_MOUSE_BUTTON_LEFT = 0,
     APP_MOUSE_BUTTON_RIGHT = 1,
     APP_MOUSE_BUTTON_MIDDLE = 2,
-    APP_HID_KEY_A = 0x04,
     APP_HID_KEY_W = 0x1a,
     APP_HID_KEY_Q = 0x14,
 };
@@ -122,7 +118,12 @@ static void app_input_task(void *arg)
 
     esp_err_t err = mpr121_init(&touch, &touch_config);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "MPR121 init failed: %s", esp_err_to_name(err));
+        ESP_LOGW(TAG,
+                 "MPR121 unavailable at I2C address 0x%02x on SDA=%d SCL=%d: %s; touch input disabled",
+                 touch_config.i2c_address,
+                 touch_config.sda_gpio,
+                 touch_config.scl_gpio,
+                 esp_err_to_name(err));
         vTaskDelete(NULL);
     }
 
@@ -166,35 +167,6 @@ static void app_input_task(void *arg)
     }
 }
 
-static void app_test_key_task(void *arg)
-{
-    (void)arg;
-
-    for (uint8_t count = 0; count < APP_TEST_KEY_MAX_PRESSES; ++count) {
-        vTaskDelay(pdMS_TO_TICKS(APP_TEST_KEY_INTERVAL_MS));
-
-        esp_err_t err = send_keyboard_key(APP_HID_KEY_A, true);
-        if (err != ESP_OK) {
-            ESP_LOGW(TAG, "Test key press failed: %s", esp_err_to_name(err));
-            continue;
-        }
-
-        vTaskDelay(pdMS_TO_TICKS(APP_TEST_KEY_PRESS_MS));
-
-        err = send_keyboard_key(APP_HID_KEY_A, false);
-        if (err != ESP_OK) {
-            ESP_LOGW(TAG, "Test key release failed: %s", esp_err_to_name(err));
-            continue;
-        }
-
-        ESP_LOGI(TAG, "Sent test key A press %u/%u",
-                 (unsigned int)(count + 1), APP_TEST_KEY_MAX_PRESSES);
-    }
-
-    ESP_LOGI(TAG, "Test key A task finished");
-    vTaskDelete(NULL);
-}
-
 esp_err_t app_controller_init(void)
 {
     esp_err_t err = espnow_transport_init();
@@ -214,12 +186,6 @@ esp_err_t app_controller_init(void)
         return ESP_FAIL;
     }
 
-    result = xTaskCreate(app_test_key_task, "test_key_a", 3072, NULL, 4, NULL);
-    if (result != pdPASS) {
-        ESP_LOGE(TAG, "Failed to create test key task");
-        return ESP_FAIL;
-    }
-
-    ESP_LOGI(TAG, "Input controller ready");
+    ESP_LOGI(TAG, "App controller ready");
     return ESP_OK;
 }

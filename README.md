@@ -30,21 +30,31 @@ Os comandos são enviados dentro de um envelope seguro da aplicação: `magic=0x
 - `components/app`: orquestra inicialização, polling do MPR121 e envio das ações mapeadas.
 - `main`: inicializa NVS e chama a aplicação.
 
-## Teste de Tecla
-
-Após inicializar ESP-NOW, peer seguro e NVS, o emissor envia a tecla `a` a cada 5 segundos, limitado a 10 acionamentos. Cada acionamento envia dois pacotes seguros: `0x03, 0x04, 1` para pressionar e `0x03, 0x04, 0` para soltar.
-
 ## Entrada Capacitiva
 
-O emissor usa um MPR121 no barramento I2C com `SDA=21`, `SCL=22` e endereço `0x5A`. O driver lê todos os 12 canais, mas o mapeamento inicial usa apenas os canais 0 a 4:
+O emissor usa um MPR121 no barramento `I2C_NUM_0` com endereço `0x5A`. O driver lê todos os 12 canais, mas o mapeamento inicial usa apenas os canais 0 a 4.
 
-| Canal | Ação |
+Mapa I2C/GPIO:
+
+| Sinal | ESP32 | MPR121 | Observação |
+| --- | --- | --- | --- |
+| `I2C SDA` | `GPIO21` | `SDA` | Dados do barramento I2C |
+| `I2C SCL` | `GPIO22` | `SCL` | Clock do barramento I2C |
+| `3V3` | `3V3` | `VCC` | Alimentação do módulo |
+| `GND` | `GND` | `GND` | Terra comum |
+| `ADDR` | sem GPIO | `ADDR` | Aberto ou `GND` mantém endereço `0x5A` |
+| `IRQ` | não conectado | `IRQ` | Reservado para interrupção futura |
+
+Mapa dos eletrodos:
+
+| MPR121 | Ação inicial |
 | --- | --- |
-| 0 | Mouse esquerdo |
-| 1 | Mouse direito |
-| 2 | Mouse centro |
-| 3 | Tecla `W` |
-| 4 | Tecla `Q` |
+| `E0` | Mouse esquerdo |
+| `E1` | Mouse direito |
+| `E2` | Mouse centro |
+| `E3` | Tecla `W` |
+| `E4` | Tecla `Q` |
+| `E5` a `E11` | Lidos pelo driver, sem ação configurada |
 
 O polling roda a cada 20 ms e o mapper exige leituras consecutivas iguais antes de emitir `PRESSED` ou `RELEASED`. Eventos não são repetidos enquanto o eletrodo permanece no mesmo estado.
 
