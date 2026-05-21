@@ -19,10 +19,26 @@ Todos os inteiros de 16 bits usam little-endian. `pressed` vale `0` para solto e
 ## Arquitetura
 
 - `components/system_config`: expõe a configuração privada gerada a partir do `.env`.
+- `components/mpr121`: driver I2C reutilizável para ler os 12 eletrodos do MPR121.
+- `components/input`: mapeia estados capacitivos estáveis para ações lógicas.
 - `components/input_protocol`: monta payloads puros e validados para o protocolo do receptor.
 - `components/transport_espnow`: inicializa Wi-Fi STA, ESP-NOW, PMK/LMK e envia payloads ao receptor cadastrado.
-- `components/app`: orquestra inicialização e envia uma sequência simples de teste.
+- `components/app`: orquestra inicialização, polling do MPR121 e envio das ações mapeadas.
 - `main`: inicializa NVS e chama a aplicação.
+
+## Entrada Capacitiva
+
+O emissor usa um MPR121 no barramento I2C com `SDA=21`, `SCL=22` e endereço `0x5A`. O driver lê todos os 12 canais, mas o mapeamento inicial usa apenas os canais 0 a 4:
+
+| Canal | Ação |
+| --- | --- |
+| 0 | Mouse esquerdo |
+| 1 | Mouse direito |
+| 2 | Mouse centro |
+| 3 | Tecla `W` |
+| 4 | Tecla `Q` |
+
+O polling roda a cada 20 ms e o mapper exige leituras consecutivas iguais antes de emitir `PRESSED` ou `RELEASED`. Eventos não são repetidos enquanto o eletrodo permanece no mesmo estado.
 
 ## Setup
 

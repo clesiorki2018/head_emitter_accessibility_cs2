@@ -2,7 +2,7 @@
 #include "esp_log.h"
 #include "nvs_flash.h"
 
-static const char *TAG = "head_emitter";
+static const char *TAG = "app_main";
 
 void app_main(void)
 {
