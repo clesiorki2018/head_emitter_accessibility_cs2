@@ -1,0 +1,24 @@
+{
+  "idf.espIdfPath": "/home/max/projetos/esp/esp-idf",
+  "idf.toolsPath": "/home/max/.espressif",
+  "idf.pythonBinPath": "/usr/bin/python3",
+  "idf.flashType": "UART",
+  "idf.port": "/dev/ttyUSB0",
+  "idf.buildPath": "/mnt/rambuild/head_emitter",
+  "cmake.buildDirectory": "/mnt/rambuild/head_emitter",
+  "clangd.path": "/home/max/.espressif/tools/esp-clang/esp-20.1.1_20250829/esp-clang/bin/clangd",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=**",
+    "--compile-commands-dir=/mnt/rambuild/head_emitter"
+  ],
+  "files.watcherExclude": {
+    "**/build/**": true,
+    "/mnt/rambuild/**": true
+  },
+  "search.exclude": {
+    "**/build": true,
+    "/mnt/rambuild/**": true
+  },
+  "idf.currentSetup": "/home/max/projetos/esp/esp-idf"
+}

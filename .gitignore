@@ -1,0 +1,67 @@
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+
+# ESP-IDF build and configuration
+build/
+sdkconfig
+sdkconfig.old
+sdkconfig.cmake
+sdkconfig.defaults.old
+
+# IDF generated files
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+Makefile
+Makefile.*
+*.ninja
+*.ninja.d
+
+# Components and partition table artifacts
+components/*/build/
+bootloader/build/
+partition_table/*.bin
+partition_table/*.csv
+partition_table/*.map
+partition_table/*.elf
+
+# Generated environment and flash args
+config.env
+sender_config.env
+sender_config.*
+*.flasher_args
+*.flash_args
+flasher_args.json
+
+# Flash and monitor artifacts
+*.bin
+*.elf
+*.map
+*.hex
+*.uf2
+*.log
+
+# Python tooling used by ESP-IDF
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Editor and OS files
+.vscode/ipch/
+.vscode/*
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ESP-IDF toolchain and managed components
+.idf_tools/
+managed_components/
+dependencies.lock
