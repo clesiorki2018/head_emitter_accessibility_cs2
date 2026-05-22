@@ -10,6 +10,34 @@
 
 static const char *TAG = "espnow_transport";
 
+static void log_mac(const char *label, const uint8_t mac[6])
+{
+    ESP_LOGI(TAG, "%s %02x:%02x:%02x:%02x:%02x:%02x",
+             label, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+}
+
+static void espnow_send_cb(const esp_now_send_info_t *tx_info, esp_now_send_status_t status)
+{
+    if (tx_info == NULL || tx_info->des_addr == NULL) {
+        ESP_LOGW(TAG, "ESP-NOW send callback missing destination info");
+        return;
+    }
+
+    ESP_LOGI(TAG, "ESP-NOW delivery: peer=%02x:%02x:%02x:%02x:%02x:%02x status=%s",
+             tx_info->des_addr[0],
+             tx_info->des_addr[1],
+             tx_info->des_addr[2],
+             tx_info->des_addr[3],
+             tx_info->des_addr[4],
+             tx_info->des_addr[5],
+             status == ESP_NOW_SEND_SUCCESS ? "SUCCESS" : "FAIL");
+
+    if (status != ESP_NOW_SEND_SUCCESS) {
+        ESP_LOGW(TAG,
+                 "ESP-NOW peer did not ACK; check receiver power, STA MAC, fixed channel, PMK/LMK, and distance");
+    }
+}
+
 static esp_err_t wifi_init(void)
 {
     esp_err_t err = esp_netif_init();
@@ -41,7 +69,28 @@ static esp_err_t wifi_init(void)
     }
 
     const system_config_security_t *config = system_config_get_security();
-    return esp_wifi_set_channel(config->wifi_channel, WIFI_SECOND_CHAN_NONE);
+    err = esp_wifi_set_channel(config->wifi_channel, WIFI_SECOND_CHAN_NONE);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    uint8_t local_mac[6];
+    err = esp_wifi_get_mac(WIFI_IF_STA, local_mac);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    uint8_t primary_channel = 0;
+    wifi_second_chan_t second_channel = WIFI_SECOND_CHAN_NONE;
+    err = esp_wifi_get_channel(&primary_channel, &second_channel);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    log_mac("Local STA MAC:", local_mac);
+    ESP_LOGI(TAG, "Wi-Fi fixed channel set: primary=%u secondary=%d",
+             primary_channel, second_channel);
+    return ESP_OK;
 }
 
 static esp_err_t add_receiver_peer(void)
@@ -73,13 +122,7 @@ static esp_err_t add_receiver_peer(void)
         return err;
     }
 
-    ESP_LOGI(TAG, "Receiver peer configured %02x:%02x:%02x:%02x:%02x:%02x",
-             config->receiver_mac[0],
-             config->receiver_mac[1],
-             config->receiver_mac[2],
-             config->receiver_mac[3],
-             config->receiver_mac[4],
-             config->receiver_mac[5]);
+    log_mac("Receiver peer configured:", config->receiver_mac);
     return ESP_OK;
 }
 
@@ -114,6 +157,12 @@ esp_err_t espnow_transport_init(void)
         return err;
     }
 
+    err = esp_now_register_send_cb(espnow_send_cb);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "ESP-NOW send callback registration failed: %s", esp_err_to_name(err));
+        return err;
+    }
+
     if (config->encryption_enabled) {
         err = esp_now_set_pmk(config->pmk);
         if (err != ESP_OK) {
@@ -128,7 +177,8 @@ esp_err_t espnow_transport_init(void)
         return err;
     }
 
-    ESP_LOGI(TAG, "ESP-NOW transport ready on channel %u", config->wifi_channel);
+    ESP_LOGI(TAG, "ESP-NOW transport ready on channel %u encryption=%s",
+             config->wifi_channel, config->encryption_enabled ? "enabled" : "disabled");
     return ESP_OK;
 }
 

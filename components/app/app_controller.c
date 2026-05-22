@@ -1,4 +1,5 @@
 #include "app/app_controller.h"
+#include <inttypes.h>
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -24,6 +25,56 @@ enum {
     APP_HID_KEY_Q = 0x14,
 };
 
+static const char *input_action_name(input_action_t action)
+{
+    switch (action) {
+    case INPUT_ACTION_MOUSE_LEFT:
+        return "MOUSE_LEFT";
+    case INPUT_ACTION_MOUSE_RIGHT:
+        return "MOUSE_RIGHT";
+    case INPUT_ACTION_MOUSE_MIDDLE:
+        return "MOUSE_MIDDLE";
+    case INPUT_ACTION_KEY_W:
+        return "KEY_W";
+    case INPUT_ACTION_KEY_Q:
+        return "KEY_Q";
+    case INPUT_ACTION_NONE:
+        return "NONE";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+static const char *input_event_type_name(input_event_type_t type)
+{
+    switch (type) {
+    case INPUT_EVENT_PRESSED:
+        return "PRESSED";
+    case INPUT_EVENT_RELEASED:
+        return "RELEASED";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+static const char *command_opcode_name(uint8_t opcode)
+{
+    switch (opcode) {
+    case 0x01:
+        return "MOUSE_MOVE";
+    case 0x02:
+        return "MOUSE_BUTTON";
+    case 0x03:
+        return "KEYBOARD_KEY";
+    case 0x04:
+        return "JOYSTICK_AXIS";
+    case 0x05:
+        return "JOYSTICK_BUTTON";
+    default:
+        return "UNKNOWN";
+    }
+}
+
 static esp_err_t send_payload(const uint8_t *payload, size_t len)
 {
     uint8_t packet[SECURE_ENVELOPE_MAX_SIZE];
@@ -42,9 +93,24 @@ static esp_err_t send_payload(const uint8_t *payload, size_t len)
         return err;
     }
 
+    uint8_t opcode = payload[0];
+    uint8_t arg0 = len > 1 ? payload[1] : 0;
+    uint8_t arg1 = len > 2 ? payload[2] : 0;
+    ESP_LOGI(TAG,
+             "Sending command: sequence=%" PRIu32 " opcode=0x%02x(%s) len=%u arg0=%u arg1=%u envelope_len=%u",
+             sequence,
+             opcode,
+             command_opcode_name(opcode),
+             (unsigned)len,
+             arg0,
+             arg1,
+             (unsigned)packet_len);
+
     err = espnow_transport_send(packet, packet_len);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "ESP-NOW send failed: %s", esp_err_to_name(err));
+    } else {
+        ESP_LOGI(TAG, "ESP-NOW send queued: sequence=%" PRIu32, sequence);
     }
 
     return err;
@@ -81,6 +147,9 @@ static esp_err_t dispatch_input_event(const input_event_t *event)
     }
 
     bool pressed = input_event_is_pressed(event);
+
+    ESP_LOGI(TAG, "Dispatch input event: action=%s type=%s",
+             input_action_name(event->action), input_event_type_name(event->type));
 
     switch (event->action) {
     case INPUT_ACTION_MOUSE_LEFT:
