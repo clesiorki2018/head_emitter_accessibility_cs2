@@ -49,7 +49,8 @@ Mapa dos eletrodos:
 
 | MPR121 | Ação inicial |
 | --- | --- |
-| `E0` a `E6` | Lidos pelo driver, sem ação configurada |
+| `E0` a `E5` | Lidos pelo driver, sem ação configurada |
+| `E6` | Controle de acessibilidade |
 | `E7` | Mouse esquerdo |
 | `E8` | Mouse direito |
 | `E9` | Mouse centro |
@@ -57,6 +58,19 @@ Mapa dos eletrodos:
 | `E11` | Tecla `Q` |
 
 O polling roda a cada 20 ms e o mapper exige leituras consecutivas iguais antes de emitir `PRESSED` ou `RELEASED`. Eventos não são repetidos enquanto o eletrodo permanece no mesmo estado.
+
+## Acessibilidade
+
+O módulo de acessibilidade usa o eletrodo `E6` como controle:
+
+- 3 toques rápidos alternam a funcionalidade 1.
+- Segurar por 3 segundos alterna a funcionalidade 2.
+
+Funcionalidade 1: quando `E7` for tocado, envia `Ctrl` pressionado por 0,7 s e solta automaticamente. Novos toques em `E7` durante esse pulso não acumulam pulsos pendentes.
+
+Funcionalidade 2: alterna as teclas `A` e `D` a cada 0,6 s, mantendo cada tecla pressionada por 0,8 s.
+
+Os tempos, canais e keycodes ficam em `components/accessibility/include/accessibility/accessibility_config.h`.
 
 ## Setup
 

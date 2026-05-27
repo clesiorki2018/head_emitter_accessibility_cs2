@@ -1,5 +1,6 @@
 #include "app/app_controller.h"
 #include <inttypes.h>
+#include "accessibility/accessibility.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -140,6 +141,12 @@ static esp_err_t send_keyboard_key(uint8_t keycode, bool pressed)
     return send_payload(payload, INPUT_PROTOCOL_KEYBOARD_KEY_SIZE);
 }
 
+static esp_err_t accessibility_send_keyboard_key(uint8_t keycode, bool pressed, void *ctx)
+{
+    (void)ctx;
+    return send_keyboard_key(keycode, pressed);
+}
+
 static esp_err_t dispatch_input_event(const input_event_t *event)
 {
     if (event == NULL) {
@@ -174,6 +181,8 @@ static void app_input_task(void *arg)
     (void)arg;
 
     mpr121_t touch;
+    accessibility_t accessibility;
+    accessibility_config_t accessibility_config;
     input_mapper_t mapper;
     input_mapper_config_t mapper_config;
 
@@ -196,6 +205,14 @@ static void app_input_task(void *arg)
         vTaskDelete(NULL);
     }
 
+    accessibility_default_config(&accessibility_config);
+    accessibility_config.send_key = accessibility_send_keyboard_key;
+    err = accessibility_init(&accessibility, &accessibility_config);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Accessibility module init failed: %s", esp_err_to_name(err));
+        vTaskDelete(NULL);
+    }
+
     input_mapper_default_config(&mapper_config);
     err = input_mapper_init(&mapper, &mapper_config);
     if (err != ESP_OK) {
@@ -215,6 +232,12 @@ static void app_input_task(void *arg)
             ESP_LOGW(TAG, "MPR121 read failed: %s", esp_err_to_name(err));
             vTaskDelay(pdMS_TO_TICKS(APP_POLL_INTERVAL_MS));
             continue;
+        }
+
+        uint32_t now_ms = (uint32_t)(xTaskGetTickCount() * portTICK_PERIOD_MS);
+        err = accessibility_update(&accessibility, touched_mask, now_ms);
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "Accessibility update failed: %s", esp_err_to_name(err));
         }
 
         err = input_mapper_update(&mapper, touched_mask, events,
