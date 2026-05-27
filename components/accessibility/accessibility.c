@@ -41,6 +41,31 @@ static uint8_t alt_keycode(uint8_t index)
                : ACCESSIBILITY_HID_KEY_D;
 }
 
+static bool debounce_channel(bool raw_touched,
+                             bool *stable_touched,
+                             bool *candidate_touched,
+                             uint8_t *candidate_count)
+{
+    if (raw_touched == *stable_touched) {
+        *candidate_touched = raw_touched;
+        *candidate_count = 0;
+        return *stable_touched;
+    }
+
+    if (raw_touched != *candidate_touched) {
+        *candidate_touched = raw_touched;
+        *candidate_count = 0;
+    }
+
+    ++(*candidate_count);
+    if (*candidate_count >= ACCESSIBILITY_DEBOUNCE_POLLS) {
+        *stable_touched = raw_touched;
+        *candidate_count = 0;
+    }
+
+    return *stable_touched;
+}
+
 static esp_err_t release_alt_key_if_needed(accessibility_t *accessibility,
                                            uint8_t index,
                                            uint32_t now_ms)
@@ -88,7 +113,8 @@ static esp_err_t toggle_feature2(accessibility_t *accessibility, uint32_t now_ms
 }
 
 static esp_err_t update_feature1(accessibility_t *accessibility,
-                                 bool click_touched,
+                                 bool previous_right_click_touched,
+                                 bool right_click_touched,
                                  uint32_t now_ms)
 {
     esp_err_t result = ESP_OK;
@@ -96,11 +122,13 @@ static esp_err_t update_feature1(accessibility_t *accessibility,
     if (accessibility->ctrl_pulse_active &&
         deadline_reached(now_ms, accessibility->ctrl_release_at_ms)) {
         accessibility->ctrl_pulse_active = false;
+        ESP_LOGI(TAG, "Feature 1 Ctrl released");
         result = send_key(accessibility, ACCESSIBILITY_HID_KEY_LEFT_CTRL, false);
     }
 
-    if (accessibility->feature1_enabled && click_touched && !accessibility->click_touched &&
+    if (accessibility->feature1_enabled && right_click_touched && !previous_right_click_touched &&
         !accessibility->ctrl_pulse_active) {
+        ESP_LOGI(TAG, "Feature 1 Ctrl pressed with right click");
         esp_err_t err = send_key(accessibility, ACCESSIBILITY_HID_KEY_LEFT_CTRL, true);
         if (result == ESP_OK) {
             result = err;
@@ -150,23 +178,21 @@ static esp_err_t update_feature2(accessibility_t *accessibility, uint32_t now_ms
 }
 
 static esp_err_t update_control_gesture(accessibility_t *accessibility,
+                                        bool previous_control_touched,
                                         bool control_touched,
                                         uint32_t now_ms)
 {
-    if (control_touched && !accessibility->control_touched) {
-        accessibility->control_pressed_at_ms = now_ms;
-        accessibility->control_long_press_handled = false;
-    }
+    if (control_touched && !previous_control_touched) {
+        if (!accessibility->control_hold_tracking ||
+            elapsed_ms(now_ms, accessibility->control_released_at_ms) >
+                ACCESSIBILITY_LONG_PRESS_RELEASE_GRACE_MS) {
+            accessibility->control_pressed_at_ms = now_ms;
+            accessibility->control_long_press_handled = false;
+        }
 
-    if (control_touched && !accessibility->control_long_press_handled &&
-        elapsed_ms(now_ms, accessibility->control_pressed_at_ms) >= ACCESSIBILITY_LONG_PRESS_MS) {
-        accessibility->control_long_press_handled = true;
-        accessibility->tap_count = 0;
-        return toggle_feature2(accessibility, now_ms);
-    }
+        accessibility->control_hold_tracking = true;
+        ESP_LOGI(TAG, "Control E6 pressed");
 
-    if (!control_touched && accessibility->control_touched &&
-        !accessibility->control_long_press_handled) {
         if (accessibility->tap_count == 0 ||
             elapsed_ms(now_ms, accessibility->last_tap_ms) <= ACCESSIBILITY_TAP_MAX_INTERVAL_MS) {
             ++accessibility->tap_count;
@@ -175,12 +201,31 @@ static esp_err_t update_control_gesture(accessibility_t *accessibility,
         }
 
         accessibility->last_tap_ms = now_ms;
+        ESP_LOGI(TAG, "Control E6 tap count=%u", accessibility->tap_count);
         if (accessibility->tap_count >= ACCESSIBILITY_TRIPLE_TAP_COUNT) {
             accessibility->tap_count = 0;
             accessibility->feature1_enabled = !accessibility->feature1_enabled;
             ESP_LOGI(TAG, "Feature 1 %s",
                      accessibility->feature1_enabled ? "enabled" : "disabled");
         }
+    }
+
+    if (!control_touched && previous_control_touched) {
+        accessibility->control_released_at_ms = now_ms;
+    }
+
+    if (!control_touched && accessibility->control_hold_tracking &&
+        elapsed_ms(now_ms, accessibility->control_released_at_ms) >
+            ACCESSIBILITY_LONG_PRESS_RELEASE_GRACE_MS) {
+        accessibility->control_hold_tracking = false;
+    }
+
+    if (accessibility->control_hold_tracking && !accessibility->control_long_press_handled &&
+        elapsed_ms(now_ms, accessibility->control_pressed_at_ms) >= ACCESSIBILITY_LONG_PRESS_MS) {
+        accessibility->control_long_press_handled = true;
+        accessibility->tap_count = 0;
+        ESP_LOGI(TAG, "Control E6 long press");
+        return toggle_feature2(accessibility, now_ms);
     }
 
     return ESP_OK;
@@ -215,12 +260,28 @@ esp_err_t accessibility_update(accessibility_t *accessibility,
         return ESP_ERR_INVALID_ARG;
     }
 
-    bool control_touched = channel_touched(touched_mask, ACCESSIBILITY_CONTROL_CHANNEL);
-    bool click_touched = channel_touched(touched_mask, ACCESSIBILITY_CLICK_CHANNEL);
+    bool previous_control_touched = accessibility->control_touched;
+    bool control_touched = debounce_channel(
+        channel_touched(touched_mask, ACCESSIBILITY_CONTROL_CHANNEL),
+        &accessibility->control_touched,
+        &accessibility->control_candidate_touched,
+        &accessibility->control_candidate_count);
+    bool previous_right_click_touched = accessibility->right_click_touched;
+    bool right_click_touched = debounce_channel(
+        channel_touched(touched_mask, ACCESSIBILITY_RIGHT_CLICK_CHANNEL),
+        &accessibility->right_click_touched,
+        &accessibility->right_click_candidate_touched,
+        &accessibility->right_click_candidate_count);
 
-    esp_err_t result = update_control_gesture(accessibility, control_touched, now_ms);
+    esp_err_t result = update_control_gesture(accessibility,
+                                             previous_control_touched,
+                                             control_touched,
+                                             now_ms);
 
-    esp_err_t err = update_feature1(accessibility, click_touched, now_ms);
+    esp_err_t err = update_feature1(accessibility,
+                                    previous_right_click_touched,
+                                    right_click_touched,
+                                    now_ms);
     if (result == ESP_OK) {
         result = err;
     }
@@ -231,7 +292,7 @@ esp_err_t accessibility_update(accessibility_t *accessibility,
     }
 
     accessibility->control_touched = control_touched;
-    accessibility->click_touched = click_touched;
+    accessibility->right_click_touched = right_click_touched;
 
     return result;
 }
