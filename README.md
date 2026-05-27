@@ -49,12 +49,12 @@ Mapa dos eletrodos:
 
 | MPR121 | Ação inicial |
 | --- | --- |
-| `E0` | Mouse esquerdo |
-| `E1` | Mouse direito |
-| `E2` | Mouse centro |
-| `E3` | Tecla `W` |
-| `E4` | Tecla `Q` |
-| `E5` a `E11` | Lidos pelo driver, sem ação configurada |
+| `E0` a `E6` | Lidos pelo driver, sem ação configurada |
+| `E7` | Mouse esquerdo |
+| `E8` | Mouse direito |
+| `E9` | Mouse centro |
+| `E10` | Tecla `W` |
+| `E11` | Tecla `Q` |
 
 O polling roda a cada 20 ms e o mapper exige leituras consecutivas iguais antes de emitir `PRESSED` ou `RELEASED`. Eventos não são repetidos enquanto o eletrodo permanece no mesmo estado.
 
