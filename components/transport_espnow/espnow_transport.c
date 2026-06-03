@@ -10,6 +10,8 @@
 
 static const char *TAG = "espnow_transport";
 
+#define ESPNOW_WIFI_MAX_TX_POWER_QDBM 52 /* 13 dBm, units are 0.25 dBm. */
+
 static void log_mac(const char *label, const uint8_t mac[6])
 {
     ESP_LOGI(TAG, "%s %02x:%02x:%02x:%02x:%02x:%02x",
@@ -68,6 +70,11 @@ static esp_err_t wifi_init(void)
         return err;
     }
 
+    err = esp_wifi_set_max_tx_power(ESPNOW_WIFI_MAX_TX_POWER_QDBM);
+    if (err != ESP_OK) {
+        return err;
+    }
+
     const system_config_security_t *config = system_config_get_security();
     err = esp_wifi_set_channel(config->wifi_channel, WIFI_SECOND_CHAN_NONE);
     if (err != ESP_OK) {
@@ -88,6 +95,8 @@ static esp_err_t wifi_init(void)
     }
 
     log_mac("Local STA MAC:", local_mac);
+    ESP_LOGI(TAG, "Wi-Fi max TX power capped at %.2f dBm",
+             ESPNOW_WIFI_MAX_TX_POWER_QDBM / 4.0f);
     ESP_LOGI(TAG, "Wi-Fi fixed channel set: primary=%u secondary=%d",
              primary_channel, second_channel);
     return ESP_OK;
