@@ -43,10 +43,9 @@ void input_mapper_default_config(input_mapper_config_t *config)
         config->channel_actions[index] = INPUT_ACTION_NONE;
     }
 
-    config->channel_actions[6] = INPUT_ACTION_MOUSE_RIGHT;
     config->channel_actions[7] = INPUT_ACTION_MOUSE_LEFT;
-    config->channel_actions[9] = INPUT_ACTION_MOUSE_MIDDLE;
-    config->channel_actions[10] = INPUT_ACTION_KEY_W;
+    config->channel_actions[9] = INPUT_ACTION_MOUSE_RIGHT;
+    config->channel_actions[10] = INPUT_ACTION_MOUSE_MIDDLE;
     config->channel_actions[11] = INPUT_ACTION_KEY_Q;
     config->debounce_polls = INPUT_MAPPER_DEFAULT_DEBOUNCE_POLLS;
 }

@@ -50,18 +50,18 @@ Mapa dos eletrodos:
 | MPR121 | Ação inicial |
 | --- | --- |
 | `E0` a `E5` | Lidos pelo driver, sem ação configurada |
-| `E6` | Mouse direito |
+| `E6` | Desabilitado por falha de hardware |
 | `E7` | Mouse esquerdo |
 | `E8` | Desabilitado por falha de hardware |
-| `E9` | Mouse centro |
-| `E10` | Tecla `W` |
+| `E9` | Mouse direito |
+| `E10` | Mouse centro |
 | `E11` | Tecla `Q` |
 
 O polling roda a cada 20 ms e o mapper exige leituras consecutivas iguais antes de emitir `PRESSED` ou `RELEASED`. Eventos não são repetidos enquanto o eletrodo permanece no mesmo estado. Quando mais de um eletrodo com ação configurada é tocado, o mapper considera apenas o primeiro canal detectado e só aceita outro canal depois que todos forem liberados.
 
 ## Acessibilidade
 
-O controle de acessibilidade por toque está desabilitado porque o eletrodo `E6` foi remapeado para o botão direito do mouse. As rotinas de acessibilidade permanecem no firmware, mas não há canal configurado para alternar as funcionalidades neste mapa de eletrodos.
+O controle de acessibilidade por toque está desabilitado porque os eletrodos `E6` e `E8` apresentam falha de hardware. As rotinas de acessibilidade permanecem no firmware, mas não há canal configurado para alternar as funcionalidades neste mapa de eletrodos.
 
 Os tempos, canais e keycodes ficam em `components/accessibility/include/accessibility/accessibility_config.h`.
 
