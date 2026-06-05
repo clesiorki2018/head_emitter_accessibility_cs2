@@ -21,6 +21,7 @@ typedef struct {
     input_mapper_config_t config;
     uint16_t stable_mask;
     uint16_t candidate_mask;
+    uint8_t locked_channel;
     uint8_t candidate_counts[INPUT_MAPPER_CHANNEL_COUNT];
 } input_mapper_t;
 

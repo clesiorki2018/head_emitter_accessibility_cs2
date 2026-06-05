@@ -9,8 +9,12 @@ enum {
     ACCESSIBILITY_ALT_KEY_D_INDEX = 1,
 };
 
-static bool channel_touched(uint16_t touched_mask, uint8_t channel)
+static bool channel_touched(uint16_t touched_mask, int channel)
 {
+    if (channel < 0 || channel >= 16) {
+        return false;
+    }
+
     return (touched_mask & (uint16_t)(1u << channel)) != 0;
 }
 
@@ -191,7 +195,7 @@ static esp_err_t update_control_gesture(accessibility_t *accessibility,
         }
 
         accessibility->control_hold_tracking = true;
-        ESP_LOGI(TAG, "Control E6 pressed");
+        ESP_LOGI(TAG, "Control channel pressed");
 
         if (accessibility->tap_count == 0 ||
             elapsed_ms(now_ms, accessibility->last_tap_ms) <= ACCESSIBILITY_TAP_MAX_INTERVAL_MS) {
@@ -201,7 +205,7 @@ static esp_err_t update_control_gesture(accessibility_t *accessibility,
         }
 
         accessibility->last_tap_ms = now_ms;
-        ESP_LOGI(TAG, "Control E6 tap count=%u", accessibility->tap_count);
+        ESP_LOGI(TAG, "Control channel tap count=%u", accessibility->tap_count);
         if (accessibility->tap_count >= ACCESSIBILITY_TRIPLE_TAP_COUNT) {
             accessibility->tap_count = 0;
             accessibility->feature1_enabled = !accessibility->feature1_enabled;
@@ -224,7 +228,7 @@ static esp_err_t update_control_gesture(accessibility_t *accessibility,
         elapsed_ms(now_ms, accessibility->control_pressed_at_ms) >= ACCESSIBILITY_LONG_PRESS_MS) {
         accessibility->control_long_press_handled = true;
         accessibility->tap_count = 0;
-        ESP_LOGI(TAG, "Control E6 long press");
+        ESP_LOGI(TAG, "Control channel long press");
         return toggle_feature2(accessibility, now_ms);
     }
 

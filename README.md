@@ -50,25 +50,18 @@ Mapa dos eletrodos:
 | MPR121 | Ação inicial |
 | --- | --- |
 | `E0` a `E5` | Lidos pelo driver, sem ação configurada |
-| `E6` | Controle de acessibilidade |
+| `E6` | Mouse direito |
 | `E7` | Mouse esquerdo |
-| `E8` | Mouse direito |
+| `E8` | Desabilitado por falha de hardware |
 | `E9` | Mouse centro |
 | `E10` | Tecla `W` |
 | `E11` | Tecla `Q` |
 
-O polling roda a cada 20 ms e o mapper exige leituras consecutivas iguais antes de emitir `PRESSED` ou `RELEASED`. Eventos não são repetidos enquanto o eletrodo permanece no mesmo estado.
+O polling roda a cada 20 ms e o mapper exige leituras consecutivas iguais antes de emitir `PRESSED` ou `RELEASED`. Eventos não são repetidos enquanto o eletrodo permanece no mesmo estado. Quando mais de um eletrodo com ação configurada é tocado, o mapper considera apenas o primeiro canal detectado e só aceita outro canal depois que todos forem liberados.
 
 ## Acessibilidade
 
-O módulo de acessibilidade usa o eletrodo `E6` como controle:
-
-- 3 toques rápidos alternam a funcionalidade 1.
-- Segurar por cerca de 3 segundos alterna a funcionalidade 2. Internamente o firmware dispara após 2,5 s e tolera quedas rápidas do toque por até 0,9 s para compensar oscilações do sensor.
-
-Funcionalidade 1: quando `E8` for tocado, envia `Ctrl` pressionado por 0,7 s e solta automaticamente junto do botão direito original. Novos toques em `E8` durante esse pulso não acumulam pulsos pendentes.
-
-Funcionalidade 2: alterna as teclas `A` e `D` a cada 0,6 s, mantendo cada tecla pressionada por 0,8 s.
+O controle de acessibilidade por toque está desabilitado porque o eletrodo `E6` foi remapeado para o botão direito do mouse. As rotinas de acessibilidade permanecem no firmware, mas não há canal configurado para alternar as funcionalidades neste mapa de eletrodos.
 
 Os tempos, canais e keycodes ficam em `components/accessibility/include/accessibility/accessibility_config.h`.
 

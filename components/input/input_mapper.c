@@ -2,10 +2,35 @@
 #include <string.h>
 
 #define INPUT_MAPPER_USED_CHANNEL_MASK 0x0fff
+#define INPUT_MAPPER_NO_LOCKED_CHANNEL INPUT_MAPPER_CHANNEL_COUNT
 
 static bool bit_is_set(uint16_t mask, size_t index)
 {
     return (mask & (uint16_t)(1u << index)) != 0;
+}
+
+static uint8_t first_touched_channel(uint16_t touched_mask)
+{
+    for (uint8_t channel = 0; channel < INPUT_MAPPER_CHANNEL_COUNT; ++channel) {
+        if (bit_is_set(touched_mask, channel)) {
+            return channel;
+        }
+    }
+
+    return INPUT_MAPPER_NO_LOCKED_CHANNEL;
+}
+
+static uint16_t action_channel_mask(const input_mapper_config_t *config)
+{
+    uint16_t mask = 0;
+
+    for (uint8_t channel = 0; channel < INPUT_MAPPER_CHANNEL_COUNT; ++channel) {
+        if (config->channel_actions[channel] != INPUT_ACTION_NONE) {
+            mask |= (uint16_t)(1u << channel);
+        }
+    }
+
+    return mask;
 }
 
 void input_mapper_default_config(input_mapper_config_t *config)
@@ -18,8 +43,8 @@ void input_mapper_default_config(input_mapper_config_t *config)
         config->channel_actions[index] = INPUT_ACTION_NONE;
     }
 
+    config->channel_actions[6] = INPUT_ACTION_MOUSE_RIGHT;
     config->channel_actions[7] = INPUT_ACTION_MOUSE_LEFT;
-    config->channel_actions[8] = INPUT_ACTION_MOUSE_RIGHT;
     config->channel_actions[9] = INPUT_ACTION_MOUSE_MIDDLE;
     config->channel_actions[10] = INPUT_ACTION_KEY_W;
     config->channel_actions[11] = INPUT_ACTION_KEY_Q;
@@ -34,6 +59,7 @@ esp_err_t input_mapper_init(input_mapper_t *mapper, const input_mapper_config_t 
 
     memset(mapper, 0, sizeof(*mapper));
     mapper->config = *config;
+    mapper->locked_channel = INPUT_MAPPER_NO_LOCKED_CHANNEL;
     return ESP_OK;
 }
 
@@ -47,6 +73,17 @@ esp_err_t input_mapper_update(input_mapper_t *mapper, uint16_t touched_mask,
 
     *event_count = 0;
     touched_mask &= INPUT_MAPPER_USED_CHANNEL_MASK;
+    touched_mask &= action_channel_mask(&mapper->config);
+
+    if (touched_mask == 0) {
+        mapper->locked_channel = INPUT_MAPPER_NO_LOCKED_CHANNEL;
+    } else if (mapper->locked_channel == INPUT_MAPPER_NO_LOCKED_CHANNEL) {
+        mapper->locked_channel = first_touched_channel(touched_mask);
+    }
+
+    if (mapper->locked_channel != INPUT_MAPPER_NO_LOCKED_CHANNEL) {
+        touched_mask &= (uint16_t)(1u << mapper->locked_channel);
+    }
 
     for (size_t channel = 0; channel < INPUT_MAPPER_CHANNEL_COUNT; ++channel) {
         bool touched = bit_is_set(touched_mask, channel);
