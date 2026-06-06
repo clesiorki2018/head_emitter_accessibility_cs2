@@ -20,6 +20,7 @@ extern "C" {
 
 #define ACCESSIBILITY_HID_KEY_A 0x04
 #define ACCESSIBILITY_HID_KEY_D 0x07
+#define ACCESSIBILITY_HID_KEY_W 0x1a
 #define ACCESSIBILITY_HID_KEY_LEFT_CTRL 0xe0
 
 #ifdef __cplusplus

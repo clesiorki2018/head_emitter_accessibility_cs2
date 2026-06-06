@@ -97,7 +97,7 @@ static esp_err_t send_payload(const uint8_t *payload, size_t len)
     uint8_t opcode = payload[0];
     uint8_t arg0 = len > 1 ? payload[1] : 0;
     uint8_t arg1 = len > 2 ? payload[2] : 0;
-    ESP_LOGI(TAG,
+    ESP_LOGD(TAG,
              "Sending command: sequence=%" PRIu32 " opcode=0x%02x(%s) len=%u arg0=%u arg1=%u envelope_len=%u",
              sequence,
              opcode,
@@ -111,7 +111,7 @@ static esp_err_t send_payload(const uint8_t *payload, size_t len)
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "ESP-NOW send failed: %s", esp_err_to_name(err));
     } else {
-        ESP_LOGI(TAG, "ESP-NOW send queued: sequence=%" PRIu32, sequence);
+        ESP_LOGD(TAG, "ESP-NOW send queued: sequence=%" PRIu32, sequence);
     }
 
     return err;
@@ -155,7 +155,7 @@ static esp_err_t dispatch_input_event(const input_event_t *event)
 
     bool pressed = input_event_is_pressed(event);
 
-    ESP_LOGI(TAG, "Dispatch input event: action=%s type=%s",
+    ESP_LOGD(TAG, "Dispatch input event: action=%s type=%s",
              input_action_name(event->action), input_event_type_name(event->type));
 
     switch (event->action) {

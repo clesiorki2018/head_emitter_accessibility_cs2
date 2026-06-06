@@ -102,6 +102,20 @@ static esp_err_t release_alt_keys(accessibility_t *accessibility)
     return result;
 }
 
+static esp_err_t set_feature2_w_key(accessibility_t *accessibility, bool pressed)
+{
+    if (accessibility->feature2_w_pressed == pressed) {
+        return ESP_OK;
+    }
+
+    esp_err_t err = send_key(accessibility, ACCESSIBILITY_HID_KEY_W, pressed);
+    if (err == ESP_OK) {
+        accessibility->feature2_w_pressed = pressed;
+    }
+
+    return err;
+}
+
 static esp_err_t toggle_feature2(accessibility_t *accessibility, uint32_t now_ms)
 {
     accessibility->feature2_enabled = !accessibility->feature2_enabled;
@@ -110,10 +124,16 @@ static esp_err_t toggle_feature2(accessibility_t *accessibility, uint32_t now_ms
     ESP_LOGD(TAG, "Feature 2 %s", accessibility->feature2_enabled ? "enabled" : "disabled");
 
     if (!accessibility->feature2_enabled) {
-        return release_alt_keys(accessibility);
+        esp_err_t result = release_alt_keys(accessibility);
+        esp_err_t err = set_feature2_w_key(accessibility, false);
+        if (result == ESP_OK) {
+            result = err;
+        }
+
+        return result;
     }
 
-    return ESP_OK;
+    return set_feature2_w_key(accessibility, true);
 }
 
 static esp_err_t update_feature1(accessibility_t *accessibility,

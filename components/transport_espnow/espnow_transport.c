@@ -25,7 +25,7 @@ static void espnow_send_cb(const esp_now_send_info_t *tx_info, esp_now_send_stat
         return;
     }
 
-    ESP_LOGI(TAG, "ESP-NOW delivery: peer=%02x:%02x:%02x:%02x:%02x:%02x status=%s",
+    ESP_LOGD(TAG, "ESP-NOW delivery: peer=%02x:%02x:%02x:%02x:%02x:%02x status=%s",
              tx_info->des_addr[0],
              tx_info->des_addr[1],
              tx_info->des_addr[2],

@@ -70,7 +70,7 @@ Esses gestos acontecem junto da ação normal da tecla `Q`: cada toque no `E11` 
 
 Funcionalidade 1: quando estiver habilitada, cada novo toque no botão direito (`E9`) envia `Ctrl` pressionado por 0,7 s. O botão direito original continua sendo enviado normalmente. Novos toques em `E9` durante esse pulso não acumulam pulsos pendentes.
 
-Funcionalidade 2: quando estiver habilitada, alterna as teclas `A` e `D` a cada 0,6 s, mantendo cada tecla pressionada por 0,8 s.
+Funcionalidade 2: quando estiver habilitada, mantém a tecla `W` pressionada continuamente e alterna as teclas `A` e `D` a cada 0,6 s, mantendo cada tecla pressionada por 0,8 s. Ao desabilitar, solta `W` e qualquer tecla `A`/`D` que ainda esteja ativa.
 
 Os logs detalhados da acessibilidade usam `ESP_LOGD`, para ficarem disponíveis em debug sem poluir o log normal.
 
