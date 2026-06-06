@@ -107,7 +107,7 @@ static esp_err_t toggle_feature2(accessibility_t *accessibility, uint32_t now_ms
     accessibility->feature2_enabled = !accessibility->feature2_enabled;
     accessibility->next_alt_key_index = ACCESSIBILITY_ALT_KEY_A_INDEX;
     accessibility->next_alt_press_at_ms = now_ms;
-    ESP_LOGI(TAG, "Feature 2 %s", accessibility->feature2_enabled ? "enabled" : "disabled");
+    ESP_LOGD(TAG, "Feature 2 %s", accessibility->feature2_enabled ? "enabled" : "disabled");
 
     if (!accessibility->feature2_enabled) {
         return release_alt_keys(accessibility);
@@ -126,13 +126,13 @@ static esp_err_t update_feature1(accessibility_t *accessibility,
     if (accessibility->ctrl_pulse_active &&
         deadline_reached(now_ms, accessibility->ctrl_release_at_ms)) {
         accessibility->ctrl_pulse_active = false;
-        ESP_LOGI(TAG, "Feature 1 Ctrl released");
+        ESP_LOGD(TAG, "Feature 1 Ctrl released");
         result = send_key(accessibility, ACCESSIBILITY_HID_KEY_LEFT_CTRL, false);
     }
 
     if (accessibility->feature1_enabled && right_click_touched && !previous_right_click_touched &&
         !accessibility->ctrl_pulse_active) {
-        ESP_LOGI(TAG, "Feature 1 Ctrl pressed with right click");
+        ESP_LOGD(TAG, "Feature 1 Ctrl pressed with right click");
         esp_err_t err = send_key(accessibility, ACCESSIBILITY_HID_KEY_LEFT_CTRL, true);
         if (result == ESP_OK) {
             result = err;
@@ -195,7 +195,7 @@ static esp_err_t update_control_gesture(accessibility_t *accessibility,
         }
 
         accessibility->control_hold_tracking = true;
-        ESP_LOGI(TAG, "Control channel pressed");
+        ESP_LOGD(TAG, "Control channel pressed");
 
         if (accessibility->tap_count == 0 ||
             elapsed_ms(now_ms, accessibility->last_tap_ms) <= ACCESSIBILITY_TAP_MAX_INTERVAL_MS) {
@@ -205,11 +205,11 @@ static esp_err_t update_control_gesture(accessibility_t *accessibility,
         }
 
         accessibility->last_tap_ms = now_ms;
-        ESP_LOGI(TAG, "Control channel tap count=%u", accessibility->tap_count);
+        ESP_LOGD(TAG, "Control channel tap count=%u", accessibility->tap_count);
         if (accessibility->tap_count >= ACCESSIBILITY_TRIPLE_TAP_COUNT) {
             accessibility->tap_count = 0;
             accessibility->feature1_enabled = !accessibility->feature1_enabled;
-            ESP_LOGI(TAG, "Feature 1 %s",
+            ESP_LOGD(TAG, "Feature 1 %s",
                      accessibility->feature1_enabled ? "enabled" : "disabled");
         }
     }
@@ -228,7 +228,7 @@ static esp_err_t update_control_gesture(accessibility_t *accessibility,
         elapsed_ms(now_ms, accessibility->control_pressed_at_ms) >= ACCESSIBILITY_LONG_PRESS_MS) {
         accessibility->control_long_press_handled = true;
         accessibility->tap_count = 0;
-        ESP_LOGI(TAG, "Control channel long press");
+        ESP_LOGD(TAG, "Control channel long press");
         return toggle_feature2(accessibility, now_ms);
     }
 
