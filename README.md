@@ -66,6 +66,8 @@ O módulo de acessibilidade usa o eletrodo `E11`, o mesmo da tecla `Q`, como con
 - 3 toques rápidos alternam a funcionalidade 1.
 - Segurar por cerca de 3 segundos alterna a funcionalidade 2.
 
+Após ligar, os gestos de acessibilidade só são habilitados depois de 3 clicks esquerdos completos enviados com sucesso. Essa trava evita que leituras instáveis do sensor no boot sejam interpretadas como gesto de acessibilidade.
+
 Esses gestos acontecem junto da ação normal da tecla `Q`: cada toque no `E11` também envia `Q` normalmente. Internamente o long press dispara após 2,5 s e tolera quedas rápidas do toque por até 0,9 s para compensar oscilações do sensor.
 
 Funcionalidade 1: quando estiver habilitada, cada novo toque no botão direito (`E9`) envia `Ctrl` pressionado por 0,7 s. O botão direito original continua sendo enviado normalmente. Novos toques em `E9` durante esse pulso não acumulam pulsos pendentes.

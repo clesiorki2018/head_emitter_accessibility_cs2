@@ -17,6 +17,7 @@ static const char *TAG = "app_controller";
 #define APP_MPR121_SCL_GPIO 22
 #define APP_POLL_INTERVAL_MS 20
 #define APP_MAX_EVENTS_PER_POLL INPUT_MAPPER_CHANNEL_COUNT
+#define APP_ACCESSIBILITY_BOOT_REQUIRED_CLICKS 3
 
 enum {
     APP_MOUSE_BUTTON_LEFT = 0,
@@ -176,6 +177,11 @@ static esp_err_t dispatch_input_event(const input_event_t *event)
     }
 }
 
+static bool input_event_is_left_click(const input_event_t *event)
+{
+    return event != NULL && event->action == INPUT_ACTION_MOUSE_LEFT;
+}
+
 static void app_input_task(void *arg)
 {
     (void)arg;
@@ -185,6 +191,9 @@ static void app_input_task(void *arg)
     accessibility_config_t accessibility_config;
     input_mapper_t mapper;
     input_mapper_config_t mapper_config;
+    bool accessibility_boot_unlocked = false;
+    bool left_click_pressed = false;
+    uint8_t boot_click_count = 0;
 
     mpr121_config_t touch_config = {
         .sda_gpio = APP_MPR121_SDA_GPIO,
@@ -234,12 +243,6 @@ static void app_input_task(void *arg)
             continue;
         }
 
-        uint32_t now_ms = (uint32_t)(xTaskGetTickCount() * portTICK_PERIOD_MS);
-        err = accessibility_update(&accessibility, touched_mask, now_ms);
-        if (err != ESP_OK) {
-            ESP_LOGW(TAG, "Accessibility update failed: %s", esp_err_to_name(err));
-        }
-
         err = input_mapper_update(&mapper, touched_mask, events,
                                   APP_MAX_EVENTS_PER_POLL, &event_count);
         if (err != ESP_OK) {
@@ -252,6 +255,38 @@ static void app_input_task(void *arg)
             err = dispatch_input_event(&events[index]);
             if (err != ESP_OK) {
                 ESP_LOGW(TAG, "Input dispatch failed: %s", esp_err_to_name(err));
+                continue;
+            }
+
+            if (!accessibility_boot_unlocked && input_event_is_left_click(&events[index])) {
+                if (input_event_is_pressed(&events[index])) {
+                    left_click_pressed = true;
+                } else if (left_click_pressed) {
+                    left_click_pressed = false;
+                    ++boot_click_count;
+                    ESP_LOGI(TAG, "Accessibility boot guard click %u/%u",
+                             boot_click_count, APP_ACCESSIBILITY_BOOT_REQUIRED_CLICKS);
+
+                    if (boot_click_count >= APP_ACCESSIBILITY_BOOT_REQUIRED_CLICKS) {
+                        err = accessibility_init(&accessibility, &accessibility_config);
+                        if (err != ESP_OK) {
+                            ESP_LOGE(TAG, "Accessibility module reinit failed: %s",
+                                     esp_err_to_name(err));
+                            vTaskDelete(NULL);
+                        }
+
+                        accessibility_boot_unlocked = true;
+                        ESP_LOGI(TAG, "Accessibility gestures enabled after boot guard");
+                    }
+                }
+            }
+        }
+
+        if (accessibility_boot_unlocked) {
+            uint32_t now_ms = (uint32_t)(xTaskGetTickCount() * portTICK_PERIOD_MS);
+            err = accessibility_update(&accessibility, touched_mask, now_ms);
+            if (err != ESP_OK) {
+                ESP_LOGW(TAG, "Accessibility update failed: %s", esp_err_to_name(err));
             }
         }
 
