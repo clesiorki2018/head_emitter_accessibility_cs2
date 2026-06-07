@@ -137,3 +137,54 @@ esp_err_t input_mapper_update(input_mapper_t *mapper, uint16_t touched_mask,
 
     return ESP_OK;
 }
+
+esp_err_t input_mapper_release_all(input_mapper_t *mapper,
+                                   input_event_t *events,
+                                   size_t max_events,
+                                   size_t *event_count)
+{
+    if (mapper == NULL || event_count == NULL || (max_events > 0 && events == NULL)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    *event_count = 0;
+
+    for (size_t channel = 0; channel < INPUT_MAPPER_CHANNEL_COUNT; ++channel) {
+        if (!bit_is_set(mapper->stable_mask, channel)) {
+            continue;
+        }
+
+        input_action_t action = mapper->config.channel_actions[channel];
+        if (action == INPUT_ACTION_NONE) {
+            continue;
+        }
+
+        if (*event_count >= max_events) {
+            return ESP_ERR_INVALID_SIZE;
+        }
+
+        events[*event_count] = (input_event_t){
+            .action = action,
+            .type = INPUT_EVENT_RELEASED,
+        };
+        ++(*event_count);
+    }
+
+    mapper->stable_mask = 0;
+    mapper->candidate_mask = 0;
+    mapper->locked_channel = INPUT_MAPPER_NO_LOCKED_CHANNEL;
+    memset(mapper->candidate_counts, 0, sizeof(mapper->candidate_counts));
+
+    return ESP_OK;
+}
+
+bool input_mapper_has_mapped_touch(const input_mapper_t *mapper, uint16_t touched_mask)
+{
+    if (mapper == NULL) {
+        return false;
+    }
+
+    touched_mask &= INPUT_MAPPER_USED_CHANNEL_MASK;
+    touched_mask &= action_channel_mask(&mapper->config);
+    return touched_mask != 0;
+}

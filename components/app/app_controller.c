@@ -18,6 +18,7 @@ static const char *TAG = "app_controller";
 #define APP_POLL_INTERVAL_MS 20
 #define APP_MAX_EVENTS_PER_POLL INPUT_MAPPER_CHANNEL_COUNT
 #define APP_ACCESSIBILITY_BOOT_REQUIRED_CLICKS 3
+#define APP_MAPPED_KEY_MAX_HOLD_MS 250
 
 enum {
     APP_MOUSE_BUTTON_LEFT = 0,
@@ -182,6 +183,96 @@ static bool input_event_is_left_click(const input_event_t *event)
     return event != NULL && event->action == INPUT_ACTION_MOUSE_LEFT;
 }
 
+static bool input_action_is_mapped_keyboard(input_action_t action)
+{
+    return action == INPUT_ACTION_KEY_W || action == INPUT_ACTION_KEY_Q;
+}
+
+static bool input_event_is_mapped_keyboard(const input_event_t *event)
+{
+    return event != NULL && input_action_is_mapped_keyboard(event->action);
+}
+
+static void update_mapped_keyboard_hold(const input_event_t *event,
+                                        bool *pressed,
+                                        input_action_t *pressed_action,
+                                        uint32_t *release_at_ms)
+{
+    if (!input_event_is_mapped_keyboard(event)) {
+        return;
+    }
+
+    if (input_event_is_pressed(event)) {
+        *pressed = true;
+        *pressed_action = event->action;
+        *release_at_ms = (uint32_t)(xTaskGetTickCount() * portTICK_PERIOD_MS) +
+                         APP_MAPPED_KEY_MAX_HOLD_MS;
+        return;
+    }
+
+    if (*pressed && *pressed_action == event->action) {
+        *pressed = false;
+    }
+}
+
+static void release_mapped_keyboard_if_due(bool *pressed,
+                                           input_action_t *pressed_action,
+                                           uint32_t release_at_ms)
+{
+    if (!*pressed) {
+        return;
+    }
+
+    uint32_t now_ms = (uint32_t)(xTaskGetTickCount() * portTICK_PERIOD_MS);
+    if ((int32_t)(now_ms - release_at_ms) < 0) {
+        return;
+    }
+
+    input_event_t release_event = {
+        .action = *pressed_action,
+        .type = INPUT_EVENT_RELEASED,
+    };
+    esp_err_t err = dispatch_input_event(&release_event);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Mapped keyboard failsafe release failed: %s", esp_err_to_name(err));
+        return;
+    }
+
+    ESP_LOGW(TAG, "Mapped keyboard failsafe released %s",
+             input_action_name(*pressed_action));
+    *pressed = false;
+}
+
+static void release_active_inputs(input_mapper_t *mapper,
+                                  accessibility_t *accessibility,
+                                  bool accessibility_enabled)
+{
+    input_event_t events[APP_MAX_EVENTS_PER_POLL];
+    size_t event_count = 0;
+
+    esp_err_t err = input_mapper_release_all(mapper, events,
+                                             APP_MAX_EVENTS_PER_POLL, &event_count);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Failed to release mapped inputs: %s", esp_err_to_name(err));
+    }
+
+    for (size_t index = 0; index < event_count; ++index) {
+        err = dispatch_input_event(&events[index]);
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "Input release dispatch failed: %s", esp_err_to_name(err));
+        }
+    }
+
+    if (!accessibility_enabled) {
+        return;
+    }
+
+    err = accessibility_release_all(accessibility);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Accessibility release failed: %s", esp_err_to_name(err));
+    }
+}
+
 static void app_input_task(void *arg)
 {
     (void)arg;
@@ -193,6 +284,10 @@ static void app_input_task(void *arg)
     input_mapper_config_t mapper_config;
     bool accessibility_boot_unlocked = false;
     bool left_click_pressed = false;
+    bool input_suspended_until_clear = false;
+    bool mapped_keyboard_pressed = false;
+    input_action_t mapped_keyboard_pressed_action = INPUT_ACTION_NONE;
+    uint32_t mapped_keyboard_release_at_ms = 0;
     uint8_t boot_click_count = 0;
 
     mpr121_config_t touch_config = {
@@ -239,14 +334,30 @@ static void app_input_task(void *arg)
         err = mpr121_read_touched(&touch, &touched_mask);
         if (err != ESP_OK) {
             ESP_LOGW(TAG, "MPR121 read failed: %s", esp_err_to_name(err));
+            release_active_inputs(&mapper, &accessibility, accessibility_boot_unlocked);
+            input_suspended_until_clear = true;
+            mapped_keyboard_pressed = false;
             vTaskDelay(pdMS_TO_TICKS(APP_POLL_INTERVAL_MS));
             continue;
+        }
+
+        if (input_suspended_until_clear) {
+            if (input_mapper_has_mapped_touch(&mapper, touched_mask)) {
+                vTaskDelay(pdMS_TO_TICKS(APP_POLL_INTERVAL_MS));
+                continue;
+            }
+
+            input_suspended_until_clear = false;
+            ESP_LOGI(TAG, "MPR121 input resumed after all mapped channels released");
         }
 
         err = input_mapper_update(&mapper, touched_mask, events,
                                   APP_MAX_EVENTS_PER_POLL, &event_count);
         if (err != ESP_OK) {
             ESP_LOGW(TAG, "Input mapping failed: %s", esp_err_to_name(err));
+            release_active_inputs(&mapper, &accessibility, accessibility_boot_unlocked);
+            input_suspended_until_clear = true;
+            mapped_keyboard_pressed = false;
             vTaskDelay(pdMS_TO_TICKS(APP_POLL_INTERVAL_MS));
             continue;
         }
@@ -257,6 +368,11 @@ static void app_input_task(void *arg)
                 ESP_LOGW(TAG, "Input dispatch failed: %s", esp_err_to_name(err));
                 continue;
             }
+
+            update_mapped_keyboard_hold(&events[index],
+                                        &mapped_keyboard_pressed,
+                                        &mapped_keyboard_pressed_action,
+                                        &mapped_keyboard_release_at_ms);
 
             if (!accessibility_boot_unlocked && input_event_is_left_click(&events[index])) {
                 if (input_event_is_pressed(&events[index])) {
@@ -281,6 +397,10 @@ static void app_input_task(void *arg)
                 }
             }
         }
+
+        release_mapped_keyboard_if_due(&mapped_keyboard_pressed,
+                                       &mapped_keyboard_pressed_action,
+                                       mapped_keyboard_release_at_ms);
 
         if (accessibility_boot_unlocked) {
             uint32_t now_ms = (uint32_t)(xTaskGetTickCount() * portTICK_PERIOD_MS);

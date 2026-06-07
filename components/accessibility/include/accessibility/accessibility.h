@@ -47,6 +47,7 @@ esp_err_t accessibility_init(accessibility_t *accessibility,
 esp_err_t accessibility_update(accessibility_t *accessibility,
                                uint16_t touched_mask,
                                uint32_t now_ms);
+esp_err_t accessibility_release_all(accessibility_t *accessibility);
 
 #ifdef __cplusplus
 }

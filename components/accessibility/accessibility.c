@@ -320,3 +320,45 @@ esp_err_t accessibility_update(accessibility_t *accessibility,
 
     return result;
 }
+
+esp_err_t accessibility_release_all(accessibility_t *accessibility)
+{
+    if (accessibility == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    esp_err_t result = ESP_OK;
+
+    if (accessibility->ctrl_pulse_active) {
+        accessibility->ctrl_pulse_active = false;
+        esp_err_t err = send_key(accessibility, ACCESSIBILITY_HID_KEY_LEFT_CTRL, false);
+        if (result == ESP_OK) {
+            result = err;
+        }
+    }
+
+    accessibility->feature2_enabled = false;
+    esp_err_t err = set_feature2_w_key(accessibility, false);
+    if (result == ESP_OK) {
+        result = err;
+    }
+
+    err = release_alt_keys(accessibility);
+    if (result == ESP_OK) {
+        result = err;
+    }
+
+    accessibility->control_touched = false;
+    accessibility->control_candidate_touched = false;
+    accessibility->control_hold_tracking = false;
+    accessibility->right_click_touched = false;
+    accessibility->right_click_candidate_touched = false;
+    accessibility->control_long_press_handled = false;
+    accessibility->control_candidate_count = 0;
+    accessibility->right_click_candidate_count = 0;
+    accessibility->tap_count = 0;
+    accessibility->next_alt_key_index = ACCESSIBILITY_ALT_KEY_A_INDEX;
+    accessibility->next_alt_press_at_ms = 0;
+
+    return result;
+}

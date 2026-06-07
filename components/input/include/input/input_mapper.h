@@ -30,6 +30,11 @@ esp_err_t input_mapper_init(input_mapper_t *mapper, const input_mapper_config_t 
 esp_err_t input_mapper_update(input_mapper_t *mapper, uint16_t touched_mask,
                               input_event_t *events, size_t max_events,
                               size_t *event_count);
+esp_err_t input_mapper_release_all(input_mapper_t *mapper,
+                                   input_event_t *events,
+                                   size_t max_events,
+                                   size_t *event_count);
+bool input_mapper_has_mapped_touch(const input_mapper_t *mapper, uint16_t touched_mask);
 
 #ifdef __cplusplus
 }
