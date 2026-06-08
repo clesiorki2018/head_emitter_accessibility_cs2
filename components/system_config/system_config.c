@@ -1,4 +1,7 @@
-/* SPDX-License-Identifier: Apache-2.0 */
+/*
+ * Copyright 2026 clesiorki2018
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #include "system_config/system_config.h"
 #include "head_emitter_private_config.h"
 

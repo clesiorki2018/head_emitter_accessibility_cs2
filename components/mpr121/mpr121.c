@@ -1,4 +1,7 @@
-/* SPDX-License-Identifier: Apache-2.0 */
+/*
+ * Copyright 2026 clesiorki2018
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #include "mpr121.h"
 #include <stddef.h>
 #include "driver/i2c_master.h"

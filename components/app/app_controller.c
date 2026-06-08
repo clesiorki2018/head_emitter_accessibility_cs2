@@ -1,4 +1,7 @@
-/* SPDX-License-Identifier: Apache-2.0 */
+/*
+ * Copyright 2026 clesiorki2018
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #include "app/app_controller.h"
 #include <inttypes.h>
 #include "accessibility/accessibility.h"
