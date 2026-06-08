@@ -29,16 +29,16 @@ HID ao receptor por ESP-NOW usando um envelope autenticado.
 - Para builds ESP-IDF, use sempre o diretorio de build em RAM:
 
 ```sh
-idf.py -B /mnt/rambuild/head_emitter build
+idf.py -B /mnt/rambuild/head_emitter_cs2 build
 ```
 
 - Quando precisar informar a porta serial nos comandos `idf.py`, use
   `/dev/ttyUSB0`. Exemplos:
 
 ```sh
-idf.py -p /dev/ttyUSB0 -B /mnt/rambuild/head_emitter build
-idf.py -p /dev/ttyUSB0 -B /mnt/rambuild/head_emitter flash
-idf.py -p /dev/ttyUSB0 -B /mnt/rambuild/head_emitter monitor
+idf.py -p /dev/ttyUSB0 -B /mnt/rambuild/head_emitter_cs2 build
+idf.py -p /dev/ttyUSB0 -B /mnt/rambuild/head_emitter_cs2 flash
+idf.py -p /dev/ttyUSB0 -B /mnt/rambuild/head_emitter_cs2 monitor
 ```
 
 - Para validar mudancas de firmware, rode o build completo em RAM sempre que
@@ -46,7 +46,7 @@ idf.py -p /dev/ttyUSB0 -B /mnt/rambuild/head_emitter monitor
 
 ```sh
 . /home/max/projetos/esp/esp-idf/export.sh
-idf.py -B /mnt/rambuild/head_emitter build
+idf.py -B /mnt/rambuild/head_emitter_cs2 build
 ```
 
 ## Configuracao privada e segredos
@@ -88,7 +88,7 @@ idf.py -B /mnt/rambuild/head_emitter build
 - O MPR121 usa `I2C_NUM_0`, endereco `0x5A`, `SDA=GPIO21` e `SCL=GPIO22`.
 - O driver le todos os 12 canais do MPR121.
 - Todos os 12 canais usam thresholds capacitivos sensiveis:
-  `touch=8`, `release=4`.
+  `touch=6`, `release=3`.
 - Mapa atual dos eletrodos:
   - `E0` a `E5`: lidos pelo driver, sem acao configurada.
   - `E6`: desabilitado por falha de hardware.
