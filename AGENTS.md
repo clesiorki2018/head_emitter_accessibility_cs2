@@ -130,6 +130,52 @@ idf.py -B /mnt/rambuild/head_emitter build
 - O contador `sequence` e persistido em NVS. Se a NVS falhar, o firmware nao
   deve enviar comandos HID.
 
+## Design, Clean Code e estilo C
+
+- Aplique principios SOLID de forma pragmatica para C embarcado:
+  - Single Responsibility: cada componente, arquivo e funcao deve ter uma
+    responsabilidade clara.
+  - Open/Closed: prefira adicionar comportamento por novas funcoes, tabelas de
+    configuracao ou callbacks, evitando alterar logica estavel sem necessidade.
+  - Liskov Substitution: mantenha contratos de structs, callbacks e funcoes
+    previsiveis para que implementacoes equivalentes possam ser trocadas sem
+    quebrar o chamador.
+  - Interface Segregation: exponha headers pequenos e especificos; nao obrigue
+    componentes a depender de APIs que nao usam.
+  - Dependency Inversion: modulos de regra de negocio devem depender de
+    abstracoes simples, como callbacks e structs de configuracao, nao diretamente
+    de detalhes de hardware quando isso puder ser evitado.
+- Siga Clean Code com foco em legibilidade para manutencao:
+  - use nomes descritivos para funcoes, variaveis, flags e estados;
+  - mantenha funcoes curtas quando possivel, extraindo passos com significado;
+  - reduza duplicacao real, mas nao crie abstracoes prematuras;
+  - prefira retornos de erro explicitos com `esp_err_t` e logs objetivos;
+  - valide argumentos publicos e trate estados impossiveis de forma segura.
+- Siga Clean Architecture de forma adequada ao ESP-IDF:
+  - regras de dominio, como protocolo, mapeamento de entrada e acessibilidade,
+    devem ficar separadas de detalhes de transporte, NVS e hardware;
+  - drivers e adaptadores ESP-IDF devem ficar nas bordas dos componentes;
+  - dependencias devem apontar de orquestracao para modulos especificos, evitando
+    ciclos entre componentes;
+  - ao criar novo comportamento, procure primeiro o componente dono natural da
+    responsabilidade antes de colocar tudo em `components/app`.
+- Use estilo de codigo inspirado no Linux kernel quando nao houver padrao local
+  mais especifico:
+  - C simples, direto e explicito;
+  - indentacao com 4 espacos neste projeto, preservando o estilo ja existente;
+  - nomes em `snake_case` para funcoes e variaveis;
+  - macros e constantes em `UPPER_SNAKE_CASE`;
+  - evite casts, alocacao dinamica e globais mutaveis desnecessarios;
+  - mantenha blocos condicionais legiveis e evite expressoes densas demais.
+- Em codigo gerado ou refatorado, adicione comentarios detalhados e explicativos
+  quando a intencao nao for obvia para uma pessoa leiga no projeto:
+  - explique o motivo da decisao, nao apenas repita o que a linha faz;
+  - documente fluxos de hardware, temporizacao, debounce, seguranca, protocolo e
+    estados persistidos quando isso ajudar a evitar uso incorreto;
+  - use comentarios antes de blocos complexos e em headers publicos para explicar
+    contratos;
+  - evite comentar linhas triviais quando nomes claros forem suficientes.
+
 ## Cuidados ao alterar codigo
 
 - Preserve os limites entre componentes ESP-IDF e atualize `CMakeLists.txt`
