@@ -40,12 +40,19 @@ static esp_err_t mpr121_set_thresholds(const mpr121_t *dev)
     for (uint8_t channel = 0; channel < MPR121_CHANNEL_COUNT; ++channel) {
         uint8_t touch_reg = MPR121_REG_TOUCH_THRESHOLD_BASE + (channel * 2);
         uint8_t release_reg = MPR121_REG_RELEASE_THRESHOLD_BASE + (channel * 2);
-        esp_err_t err = mpr121_write_u8(dev, touch_reg, dev->config.touch_threshold);
+        uint8_t touch_threshold = dev->config.channel_touch_thresholds[channel] != 0 ?
+                                  dev->config.channel_touch_thresholds[channel] :
+                                  dev->config.touch_threshold;
+        uint8_t release_threshold = dev->config.channel_release_thresholds[channel] != 0 ?
+                                    dev->config.channel_release_thresholds[channel] :
+                                    dev->config.release_threshold;
+
+        esp_err_t err = mpr121_write_u8(dev, touch_reg, touch_threshold);
         if (err != ESP_OK) {
             return err;
         }
 
-        err = mpr121_write_u8(dev, release_reg, dev->config.release_threshold);
+        err = mpr121_write_u8(dev, release_reg, release_threshold);
         if (err != ESP_OK) {
             return err;
         }

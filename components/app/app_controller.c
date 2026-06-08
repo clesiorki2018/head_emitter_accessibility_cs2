@@ -17,8 +17,10 @@ static const char *TAG = "app_controller";
 #define APP_MPR121_SCL_GPIO 22
 #define APP_POLL_INTERVAL_MS 20
 #define APP_MAX_EVENTS_PER_POLL INPUT_MAPPER_CHANNEL_COUNT
-#define APP_ACCESSIBILITY_BOOT_REQUIRED_CLICKS 3
+#define APP_ACCESSIBILITY_BOOT_SETTLE_MS 1500
 #define APP_MAPPED_KEY_MAX_HOLD_MS 250
+#define APP_RIGHT_CLICK_TOUCH_THRESHOLD 8
+#define APP_RIGHT_CLICK_RELEASE_THRESHOLD 4
 
 enum {
     APP_MOUSE_BUTTON_LEFT = 0,
@@ -149,6 +151,49 @@ static esp_err_t accessibility_send_keyboard_key(uint8_t keycode, bool pressed, 
     return send_keyboard_key(keycode, pressed);
 }
 
+static bool touch_channel_is_set(uint16_t touched_mask, uint8_t channel)
+{
+    return (touched_mask & (uint16_t)(1u << channel)) != 0;
+}
+
+static esp_err_t update_realtime_right_click(uint16_t touched_mask, bool *pressed)
+{
+    if (pressed == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    bool touched = touch_channel_is_set(touched_mask, ACCESSIBILITY_RIGHT_CLICK_CHANNEL);
+    if (touched == *pressed) {
+        return ESP_OK;
+    }
+
+    ESP_LOGI(TAG, "Realtime right click E%d %s",
+             ACCESSIBILITY_RIGHT_CLICK_CHANNEL,
+             touched ? "PRESSED" : "RELEASED");
+
+    esp_err_t err = send_mouse_button(APP_MOUSE_BUTTON_RIGHT, touched);
+    if (err == ESP_OK) {
+        *pressed = touched;
+    }
+
+    return err;
+}
+
+static esp_err_t release_realtime_right_click_if_pressed(bool *pressed)
+{
+    if (pressed == NULL || !*pressed) {
+        return ESP_OK;
+    }
+
+    ESP_LOGW(TAG, "Realtime right click released after input fault");
+    esp_err_t err = send_mouse_button(APP_MOUSE_BUTTON_RIGHT, false);
+    if (err == ESP_OK) {
+        *pressed = false;
+    }
+
+    return err;
+}
+
 static esp_err_t dispatch_input_event(const input_event_t *event)
 {
     if (event == NULL) {
@@ -157,7 +202,7 @@ static esp_err_t dispatch_input_event(const input_event_t *event)
 
     bool pressed = input_event_is_pressed(event);
 
-    ESP_LOGD(TAG, "Dispatch input event: action=%s type=%s",
+    ESP_LOGI(TAG, "Input event: action=%s type=%s",
              input_action_name(event->action), input_event_type_name(event->type));
 
     switch (event->action) {
@@ -178,9 +223,17 @@ static esp_err_t dispatch_input_event(const input_event_t *event)
     }
 }
 
-static bool input_event_is_left_click(const input_event_t *event)
+static esp_err_t unlock_accessibility_boot_guard(accessibility_t *accessibility,
+                                                 const accessibility_config_t *config)
 {
-    return event != NULL && event->action == INPUT_ACTION_MOUSE_LEFT;
+    esp_err_t err = accessibility_init(accessibility, config);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Accessibility module reinit failed: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    ESP_LOGI(TAG, "Accessibility gestures enabled after boot guard");
+    return ESP_OK;
 }
 
 static bool input_action_is_mapped_keyboard(input_action_t action)
@@ -283,12 +336,12 @@ static void app_input_task(void *arg)
     input_mapper_t mapper;
     input_mapper_config_t mapper_config;
     bool accessibility_boot_unlocked = false;
-    bool left_click_pressed = false;
     bool input_suspended_until_clear = false;
+    bool realtime_right_click_pressed = false;
     bool mapped_keyboard_pressed = false;
     input_action_t mapped_keyboard_pressed_action = INPUT_ACTION_NONE;
     uint32_t mapped_keyboard_release_at_ms = 0;
-    uint8_t boot_click_count = 0;
+    uint32_t accessibility_boot_unlock_at_ms = 0;
 
     mpr121_config_t touch_config = {
         .sda_gpio = APP_MPR121_SDA_GPIO,
@@ -297,6 +350,10 @@ static void app_input_task(void *arg)
         .touch_threshold = MPR121_DEFAULT_TOUCH_THRESHOLD,
         .release_threshold = MPR121_DEFAULT_RELEASE_THRESHOLD,
     };
+    touch_config.channel_touch_thresholds[ACCESSIBILITY_RIGHT_CLICK_CHANNEL] =
+        APP_RIGHT_CLICK_TOUCH_THRESHOLD;
+    touch_config.channel_release_thresholds[ACCESSIBILITY_RIGHT_CLICK_CHANNEL] =
+        APP_RIGHT_CLICK_RELEASE_THRESHOLD;
 
     esp_err_t err = mpr121_init(&touch, &touch_config);
     if (err != ESP_OK) {
@@ -318,6 +375,7 @@ static void app_input_task(void *arg)
     }
 
     input_mapper_default_config(&mapper_config);
+    mapper_config.channel_actions[ACCESSIBILITY_RIGHT_CLICK_CHANNEL] = INPUT_ACTION_NONE;
     err = input_mapper_init(&mapper, &mapper_config);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Input mapper init failed: %s", esp_err_to_name(err));
@@ -325,20 +383,35 @@ static void app_input_task(void *arg)
     }
 
     ESP_LOGI(TAG, "MPR121 polling started");
+    accessibility_boot_unlock_at_ms =
+        (uint32_t)(xTaskGetTickCount() * portTICK_PERIOD_MS) +
+        APP_ACCESSIBILITY_BOOT_SETTLE_MS;
 
     while (true) {
         uint16_t touched_mask;
         input_event_t events[APP_MAX_EVENTS_PER_POLL];
         size_t event_count = 0;
+        uint32_t now_ms = (uint32_t)(xTaskGetTickCount() * portTICK_PERIOD_MS);
 
         err = mpr121_read_touched(&touch, &touched_mask);
         if (err != ESP_OK) {
             ESP_LOGW(TAG, "MPR121 read failed: %s", esp_err_to_name(err));
+            esp_err_t release_err =
+                release_realtime_right_click_if_pressed(&realtime_right_click_pressed);
+            if (release_err != ESP_OK) {
+                ESP_LOGW(TAG, "Realtime right click release failed: %s",
+                         esp_err_to_name(release_err));
+            }
             release_active_inputs(&mapper, &accessibility, accessibility_boot_unlocked);
             input_suspended_until_clear = true;
             mapped_keyboard_pressed = false;
             vTaskDelay(pdMS_TO_TICKS(APP_POLL_INTERVAL_MS));
             continue;
+        }
+
+        err = update_realtime_right_click(touched_mask, &realtime_right_click_pressed);
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "Realtime right click dispatch failed: %s", esp_err_to_name(err));
         }
 
         if (input_suspended_until_clear) {
@@ -362,6 +435,25 @@ static void app_input_task(void *arg)
             continue;
         }
 
+        if (event_count > 0) {
+            ESP_LOGI(TAG, "Mapped touch: mask=0x%03x events=%u",
+                     touched_mask & 0x0fff,
+                     (unsigned)event_count);
+        }
+
+        if (!accessibility_boot_unlocked) {
+            if (input_mapper_has_mapped_touch(&mapper, touched_mask)) {
+                accessibility_boot_unlock_at_ms = now_ms + APP_ACCESSIBILITY_BOOT_SETTLE_MS;
+            } else if ((int32_t)(now_ms - accessibility_boot_unlock_at_ms) >= 0) {
+                err = unlock_accessibility_boot_guard(&accessibility, &accessibility_config);
+                if (err != ESP_OK) {
+                    vTaskDelete(NULL);
+                }
+
+                accessibility_boot_unlocked = true;
+            }
+        }
+
         for (size_t index = 0; index < event_count; ++index) {
             err = dispatch_input_event(&events[index]);
             if (err != ESP_OK) {
@@ -373,29 +465,6 @@ static void app_input_task(void *arg)
                                         &mapped_keyboard_pressed,
                                         &mapped_keyboard_pressed_action,
                                         &mapped_keyboard_release_at_ms);
-
-            if (!accessibility_boot_unlocked && input_event_is_left_click(&events[index])) {
-                if (input_event_is_pressed(&events[index])) {
-                    left_click_pressed = true;
-                } else if (left_click_pressed) {
-                    left_click_pressed = false;
-                    ++boot_click_count;
-                    ESP_LOGI(TAG, "Accessibility boot guard click %u/%u",
-                             boot_click_count, APP_ACCESSIBILITY_BOOT_REQUIRED_CLICKS);
-
-                    if (boot_click_count >= APP_ACCESSIBILITY_BOOT_REQUIRED_CLICKS) {
-                        err = accessibility_init(&accessibility, &accessibility_config);
-                        if (err != ESP_OK) {
-                            ESP_LOGE(TAG, "Accessibility module reinit failed: %s",
-                                     esp_err_to_name(err));
-                            vTaskDelete(NULL);
-                        }
-
-                        accessibility_boot_unlocked = true;
-                        ESP_LOGI(TAG, "Accessibility gestures enabled after boot guard");
-                    }
-                }
-            }
         }
 
         release_mapped_keyboard_if_due(&mapped_keyboard_pressed,
@@ -403,7 +472,6 @@ static void app_input_task(void *arg)
                                        mapped_keyboard_release_at_ms);
 
         if (accessibility_boot_unlocked) {
-            uint32_t now_ms = (uint32_t)(xTaskGetTickCount() * portTICK_PERIOD_MS);
             err = accessibility_update(&accessibility, touched_mask, now_ms);
             if (err != ESP_OK) {
                 ESP_LOGW(TAG, "Accessibility update failed: %s", esp_err_to_name(err));

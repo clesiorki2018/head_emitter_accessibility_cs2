@@ -37,6 +37,7 @@ typedef struct {
     uint32_t control_released_at_ms;
     uint32_t last_tap_ms;
     uint32_t ctrl_release_at_ms;
+    uint32_t next_w_keepalive_at_ms;
     uint32_t next_alt_press_at_ms;
     uint32_t alt_key_release_at_ms[2];
 } accessibility_t;

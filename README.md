@@ -53,11 +53,11 @@ Mapa dos eletrodos:
 | `E6` | Desabilitado por falha de hardware |
 | `E7` | Mouse esquerdo |
 | `E8` | Desabilitado por falha de hardware |
-| `E9` | Mouse direito |
+| `E9` | Mouse direito em caminho prioritário |
 | `E10` | Mouse centro |
 | `E11` | Tecla `Q` e controle de acessibilidade |
 
-O polling roda a cada 20 ms e o mapper exige leituras consecutivas iguais antes de emitir `PRESSED` ou `RELEASED`. Eventos não são repetidos enquanto o eletrodo permanece no mesmo estado. Quando mais de um eletrodo com ação configurada é tocado, o mapper considera apenas o primeiro canal detectado e só aceita outro canal depois que todos forem liberados.
+O polling roda a cada 20 ms. O mouse direito (`E9`) é enviado por um caminho prioritário, sem debounce do mapper e antes de qualquer processamento de acessibilidade. Ele também usa thresholds capacitivos mais sensíveis (`touch=8`, `release=4`) que o padrão dos demais canais (`touch=12`, `release=6`). Para os demais canais, o mapper exige leituras consecutivas iguais antes de emitir `PRESSED` ou `RELEASED`. Eventos não são repetidos enquanto o eletrodo permanece no mesmo estado. Quando mais de um eletrodo com ação configurada é tocado, o mapper considera apenas o primeiro canal detectado e só aceita outro canal depois que todos forem liberados.
 
 ## Acessibilidade
 
@@ -66,13 +66,13 @@ O módulo de acessibilidade usa o eletrodo `E11`, o mesmo da tecla `Q`, como con
 - 3 toques rápidos alternam a funcionalidade 1.
 - Segurar por cerca de 3 segundos alterna a funcionalidade 2.
 
-Após ligar, os gestos de acessibilidade só são habilitados depois de 3 clicks esquerdos completos enviados com sucesso. Essa trava evita que leituras instáveis do sensor no boot sejam interpretadas como gesto de acessibilidade.
+Após ligar, os gestos de acessibilidade são habilitados depois de um curto período com os canais mapeados em repouso. Essa trava evita que leituras instáveis do sensor no boot sejam interpretadas como gesto de acessibilidade.
 
 Esses gestos acontecem junto da ação normal da tecla `Q`: cada toque no `E11` também envia `Q` normalmente. Internamente o long press dispara após 2,5 s e tolera quedas rápidas do toque por até 0,9 s para compensar oscilações do sensor.
 
 Funcionalidade 1: quando estiver habilitada, cada novo toque no botão direito (`E9`) envia `Ctrl` pressionado por 0,7 s. O botão direito original continua sendo enviado normalmente. Novos toques em `E9` durante esse pulso não acumulam pulsos pendentes.
 
-Funcionalidade 2: quando estiver habilitada, mantém a tecla `W` pressionada continuamente e alterna as teclas `A` e `D` a cada 0,6 s, mantendo cada tecla pressionada por 0,8 s. Ao desabilitar, solta `W` e qualquer tecla `A`/`D` que ainda esteja ativa.
+Funcionalidade 2: quando estiver habilitada, mantém a tecla `W` pressionada continuamente e alterna as teclas `A` e `D` a cada 0,6 s, mantendo cada tecla pressionada por 0,25 s. Ao desabilitar, solta `W` e qualquer tecla `A`/`D` que ainda esteja ativa.
 
 Os logs detalhados da acessibilidade usam `ESP_LOGD`, para ficarem disponíveis em debug sem poluir o log normal.
 

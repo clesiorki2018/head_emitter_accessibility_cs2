@@ -18,6 +18,8 @@ typedef struct {
     uint8_t i2c_address;
     uint8_t touch_threshold;
     uint8_t release_threshold;
+    uint8_t channel_touch_thresholds[MPR121_CHANNEL_COUNT];
+    uint8_t channel_release_thresholds[MPR121_CHANNEL_COUNT];
 } mpr121_config_t;
 
 typedef struct {
