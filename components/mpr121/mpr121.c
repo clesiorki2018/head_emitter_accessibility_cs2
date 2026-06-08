@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 */
 #include "mpr121.h"
 #include <stddef.h>
 #include "driver/i2c_master.h"

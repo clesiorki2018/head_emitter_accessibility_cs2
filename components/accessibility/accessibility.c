@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 */
 #include "accessibility/accessibility.h"
 #include <string.h>
 #include "esp_log.h"

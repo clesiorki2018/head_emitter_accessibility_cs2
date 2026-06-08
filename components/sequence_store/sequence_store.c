@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 */
 #include "sequence_store/sequence_store.h"
 #include <stdbool.h>
 #include "nvs.h"

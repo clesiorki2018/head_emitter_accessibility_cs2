@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Instrucoes para o Codex
 
 Este repositorio contem o firmware ESP-IDF do emissor `head_emitter`, parte do

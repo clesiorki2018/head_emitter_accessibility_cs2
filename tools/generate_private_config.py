@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
 """Generate private build configuration from the local .env file."""
 
 from __future__ import annotations

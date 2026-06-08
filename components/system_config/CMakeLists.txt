@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 set(GENERATED_CONFIG_DIR "${CMAKE_BINARY_DIR}/generated/head_emitter")
 set(GENERATED_CONFIG_HEADER "${GENERATED_CONFIG_DIR}/head_emitter_private_config.h")
 

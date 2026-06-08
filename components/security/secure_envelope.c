@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: Apache-2.0 */
 #include "security/secure_envelope.h"
 #include <stdbool.h>
 #include <string.h>

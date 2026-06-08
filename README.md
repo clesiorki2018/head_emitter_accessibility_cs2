@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # head_emitter
 
 Firmware ESP-IDF para o emissor combo do projeto `head_click`. Este ESP32 envia comandos por ESP-NOW para o receptor HID e foi organizado para suportar mouse, teclado e joystick no mesmo dispositivo.
@@ -101,3 +103,8 @@ idf.py -B /mnt/rambuild/head_emitter build
 ```
 
 Para gravar, configure `ESPPORT` no `.env` ou exporte a porta antes de rodar `idf.py flash`.
+
+## Licenca
+
+Este projeto e distribuido sob a Apache License 2.0. Consulte o arquivo
+`LICENSE` para os termos completos.
