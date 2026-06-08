@@ -57,7 +57,7 @@ Mapa dos eletrodos:
 | `E10` | Mouse centro |
 | `E11` | Tecla `Q` e controle de acessibilidade |
 
-O polling roda a cada 20 ms. O mouse direito (`E9`) é enviado por um caminho prioritário, sem debounce do mapper e antes de qualquer processamento de acessibilidade. Ele também usa thresholds capacitivos mais sensíveis (`touch=8`, `release=4`) que o padrão dos demais canais (`touch=12`, `release=6`). Para os demais canais, o mapper exige leituras consecutivas iguais antes de emitir `PRESSED` ou `RELEASED`. Eventos não são repetidos enquanto o eletrodo permanece no mesmo estado. Quando mais de um eletrodo com ação configurada é tocado, o mapper considera apenas o primeiro canal detectado e só aceita outro canal depois que todos forem liberados.
+O polling roda a cada 20 ms. Todos os 12 canais do MPR121 usam thresholds capacitivos mais sensíveis (`touch=8`, `release=4`), inclusive eletrodos lidos pelo driver que ainda não possuem ação configurada. O mouse direito (`E9`) é enviado por um caminho prioritário, sem debounce do mapper e antes de qualquer processamento de acessibilidade. Para os demais canais, o mapper exige leituras consecutivas iguais antes de emitir `PRESSED` ou `RELEASED`. Eventos não são repetidos enquanto o eletrodo permanece no mesmo estado. Quando mais de um eletrodo com ação configurada é tocado, o mapper considera apenas o primeiro canal detectado e só aceita outro canal depois que todos forem liberados.
 
 ## Acessibilidade
 

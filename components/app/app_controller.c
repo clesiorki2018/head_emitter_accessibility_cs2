@@ -19,8 +19,8 @@ static const char *TAG = "app_controller";
 #define APP_MAX_EVENTS_PER_POLL INPUT_MAPPER_CHANNEL_COUNT
 #define APP_ACCESSIBILITY_BOOT_SETTLE_MS 1500
 #define APP_MAPPED_KEY_MAX_HOLD_MS 250
-#define APP_RIGHT_CLICK_TOUCH_THRESHOLD 8
-#define APP_RIGHT_CLICK_RELEASE_THRESHOLD 4
+#define APP_MPR121_TOUCH_THRESHOLD 8
+#define APP_MPR121_RELEASE_THRESHOLD 4
 
 enum {
     APP_MOUSE_BUTTON_LEFT = 0,
@@ -347,13 +347,13 @@ static void app_input_task(void *arg)
         .sda_gpio = APP_MPR121_SDA_GPIO,
         .scl_gpio = APP_MPR121_SCL_GPIO,
         .i2c_address = MPR121_DEFAULT_I2C_ADDRESS,
-        .touch_threshold = MPR121_DEFAULT_TOUCH_THRESHOLD,
-        .release_threshold = MPR121_DEFAULT_RELEASE_THRESHOLD,
+        .touch_threshold = APP_MPR121_TOUCH_THRESHOLD,
+        .release_threshold = APP_MPR121_RELEASE_THRESHOLD,
     };
-    touch_config.channel_touch_thresholds[ACCESSIBILITY_RIGHT_CLICK_CHANNEL] =
-        APP_RIGHT_CLICK_TOUCH_THRESHOLD;
-    touch_config.channel_release_thresholds[ACCESSIBILITY_RIGHT_CLICK_CHANNEL] =
-        APP_RIGHT_CLICK_RELEASE_THRESHOLD;
+    for (uint8_t channel = 0; channel < MPR121_CHANNEL_COUNT; ++channel) {
+        touch_config.channel_touch_thresholds[channel] = APP_MPR121_TOUCH_THRESHOLD;
+        touch_config.channel_release_thresholds[channel] = APP_MPR121_RELEASE_THRESHOLD;
+    }
 
     esp_err_t err = mpr121_init(&touch, &touch_config);
     if (err != ESP_OK) {
